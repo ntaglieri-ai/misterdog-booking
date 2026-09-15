@@ -13,64 +13,6 @@ export type DayPart = {
   appointments: Appointment[]
 }
 
-export const agenda: DayPart[] = [
-  {
-    label: "Mattina",
-    appointments: [
-      {
-        id: "a1",
-        time: "9:00",
-        name: "Luna – Bichon Frisé",
-        service: "Bagno + Toelettatura completa",
-        owner: "Chiara Rossi",
-        phone: "347 123 4567",
-        accent: "amber",
-      },
-      {
-        id: "a2",
-        time: "10:30",
-        name: "Briciola – Barboncino",
-        service: "Taglio estivo + Nail trim",
-        owner: "Marco Bianchi",
-        phone: "328 987 6543",
-        accent: "sage",
-      },
-      {
-        id: "a3",
-        time: "12:00",
-        name: "Rocky – Labrador",
-        service: "Bagno anti-pelo + Asciugatura",
-        owner: "Sara Conti",
-        phone: "333 456 7890",
-        accent: "amber",
-      },
-    ],
-  },
-  {
-    label: "Pomeriggio",
-    appointments: [
-      {
-        id: "a4",
-        time: "15:00",
-        name: "Fuffi – Shih Tzu",
-        service: "Toelettatura completa",
-        owner: "Anna De Luca",
-        phone: "320 111 2222",
-        accent: "sage",
-      },
-      {
-        id: "a5",
-        time: "16:30",
-        name: "Cleo – Golden Retriever",
-        service: "Bagno + Spazzolatura professionale",
-        owner: "Luca Ferrari",
-        phone: "340 999 8888",
-        accent: "amber",
-      },
-    ],
-  },
-]
-
 export type Client = {
   name: string
   pet: string
