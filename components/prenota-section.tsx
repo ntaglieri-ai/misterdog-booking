@@ -14,16 +14,38 @@ const labelClass =
   "mb-1.5 block text-xs font-medium uppercase tracking-wide text-warm-gray"
 
 type PrenotaSectionProps = {
-  onSubmit: () => void
+  onSubmit: (appointment: Appointment) => void
   editing?: Appointment | null
 }
 
+function splitPetName(name: string): { pet: string; breed: string } {
+  const [pet, breed] = name.split(" – ")
+  return { pet: pet ?? name, breed: breed ?? "" }
+}
+
 export function PrenotaSection({ onSubmit, editing }: PrenotaSectionProps) {
-  const [clientMode, setClientMode] = useState<"existing" | "new">("existing")
+  const editingPet = editing ? splitPetName(editing.name) : null
+
+  const [clientMode, setClientMode] = useState<"existing" | "new">(
+    editing ? "new" : "existing",
+  )
   const [query, setQuery] = useState("")
   const [selectedClient, setSelectedClient] = useState<string | null>(null)
+  const [ownerName, setOwnerName] = useState(editing?.owner ?? "")
+  const [phone, setPhone] = useState(editing?.phone ?? "")
+  const [petName, setPetName] = useState(editingPet?.pet ?? "")
+  const [breed, setBreed] = useState(editingPet?.breed ?? "")
   const [dayIndex, setDayIndex] = useState(0)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
+  const [selectedTime, setSelectedTime] = useState<string | null>(editing?.time ?? null)
+  const [selectedServices, setSelectedServices] = useState<string[]>(
+    editing
+      ? editing.service
+          .split("+")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [],
+  )
+  const [error, setError] = useState<string | null>(null)
 
   const activeDay = slotDays[dayIndex]
   const isDayFull = useMemo(
@@ -40,9 +62,64 @@ export function PrenotaSection({ onSubmit, editing }: PrenotaSectionProps) {
     )
   }, [query])
 
+  function toggleService(service: string) {
+    setSelectedServices((prev) =>
+      prev.includes(service)
+        ? prev.filter((s) => s !== service)
+        : [...prev, service],
+    )
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onSubmit()
+    setError(null)
+
+    if (!selectedTime) {
+      setError("Seleziona un orario.")
+      return
+    }
+    if (selectedServices.length === 0) {
+      setError("Seleziona almeno un servizio.")
+      return
+    }
+
+    let owner: string
+    let ownerPhone: string
+    let pet: string
+    let petBreed: string
+
+    if (clientMode === "existing") {
+      const client = clients.find((c) => c.name === selectedClient)
+      if (!client) {
+        setError("Seleziona un cliente esistente.")
+        return
+      }
+      owner = client.name
+      ownerPhone = client.phone
+      pet = client.pet
+      petBreed = client.breed
+    } else {
+      if (!ownerName.trim() || !petName.trim()) {
+        setError("Inserisci almeno proprietario e nome animale.")
+        return
+      }
+      owner = ownerName.trim()
+      ownerPhone = phone.trim()
+      pet = petName.trim()
+      petBreed = breed.trim()
+    }
+
+    const appointment: Appointment = {
+      id: editing?.id ?? `a${Date.now()}`,
+      time: selectedTime,
+      name: petBreed ? `${pet} – ${petBreed}` : pet,
+      service: selectedServices.join(" + "),
+      owner,
+      phone: ownerPhone,
+      accent: editing?.accent ?? "amber",
+    }
+
+    onSubmit(appointment)
   }
 
   return (
@@ -149,26 +226,54 @@ export function PrenotaSection({ onSubmit, editing }: PrenotaSectionProps) {
               <label className={labelClass} htmlFor="owner">
                 Proprietario
               </label>
-              <input id="owner" type="text" placeholder="Nome e cognome" className={inputClass} />
+              <input
+                id="owner"
+                type="text"
+                placeholder="Nome e cognome"
+                className={inputClass}
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+              />
             </div>
             <div>
               <label className={labelClass} htmlFor="phone">
                 Telefono
               </label>
-              <input id="phone" type="tel" placeholder="3xx xxx xxxx" className={inputClass} />
+              <input
+                id="phone"
+                type="tel"
+                placeholder="3xx xxx xxxx"
+                className={inputClass}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className={labelClass} htmlFor="pet">
                   Nome animale
                 </label>
-                <input id="pet" type="text" placeholder="Es. Luna" className={inputClass} />
+                <input
+                  id="pet"
+                  type="text"
+                  placeholder="Es. Milo"
+                  className={inputClass}
+                  value={petName}
+                  onChange={(e) => setPetName(e.target.value)}
+                />
               </div>
               <div>
                 <label className={labelClass} htmlFor="breed">
                   Razza
                 </label>
-                <input id="breed" type="text" placeholder="Es. Barboncino" className={inputClass} />
+                <input
+                  id="breed"
+                  type="text"
+                  placeholder="Es. Barboncino"
+                  className={inputClass}
+                  value={breed}
+                  onChange={(e) => setBreed(e.target.value)}
+                />
               </div>
             </div>
           </div>
@@ -253,12 +358,23 @@ export function PrenotaSection({ onSubmit, editing }: PrenotaSectionProps) {
                 key={service}
                 className="flex cursor-pointer items-center gap-2 rounded-[10px] border border-border px-3 py-2.5 text-[13px] text-brown transition-colors has-[:checked]:border-amber has-[:checked]:bg-accent"
               >
-                <input type="checkbox" className="accent-amber" />
+                <input
+                  type="checkbox"
+                  className="accent-amber"
+                  checked={selectedServices.includes(service)}
+                  onChange={() => toggleService(service)}
+                />
                 {service}
               </label>
             ))}
           </div>
         </div>
+
+        {error && (
+          <div className="mb-3.5 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-[13px] font-semibold text-destructive">
+            {error}
+          </div>
+        )}
 
         <button
           type="submit"

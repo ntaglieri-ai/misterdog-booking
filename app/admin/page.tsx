@@ -10,6 +10,15 @@ import { ClientiSection } from "@/components/clienti-section"
 import { Toast } from "@/components/toast"
 import { agenda, type Appointment, type DayPart } from "@/lib/data"
 
+function toMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number)
+  return h * 60 + (m || 0)
+}
+
+function partLabelForTime(time: string): DayPart["label"] {
+  return toMinutes(time) < 13 * 60 ? "Mattina" : "Pomeriggio"
+}
+
 export default function AdminPage() {
   const [section, setSection] = useState<Section>("agenda")
   const [parts, setParts] = useState<DayPart[]>(agenda)
@@ -48,11 +57,31 @@ export default function AdminPage() {
     setSection("prenota")
   }, [])
 
-  const handleFormSubmit = useCallback(() => {
-    showToast(editing ? "Modifiche salvate!" : "Appuntamento salvato!")
-    setEditing(null)
-    setSection("agenda")
-  }, [editing, showToast])
+  const handleFormSubmit = useCallback(
+    (appointment: Appointment) => {
+      setParts((prev) => {
+        const withoutAppointment = prev.map((part) => ({
+          ...part,
+          appointments: part.appointments.filter((a) => a.id !== appointment.id),
+        }))
+        const targetLabel = partLabelForTime(appointment.time)
+        return withoutAppointment.map((part) =>
+          part.label === targetLabel
+            ? {
+                ...part,
+                appointments: [...part.appointments, appointment].sort(
+                  (a, b) => toMinutes(a.time) - toMinutes(b.time),
+                ),
+              }
+            : part,
+        )
+      })
+      showToast(editing ? "Modifiche salvate!" : "Appuntamento salvato!")
+      setEditing(null)
+      setSection("agenda")
+    },
+    [editing, showToast],
+  )
 
   return (
     <div className="min-h-screen bg-background text-foreground">
