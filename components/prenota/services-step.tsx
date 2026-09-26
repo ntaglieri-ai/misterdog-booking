@@ -33,7 +33,7 @@ export function ServicesStep({ selected, onToggle }: ServicesStepProps) {
                   {service.name}
                 </div>
                 <div className="mt-0.5 text-xs text-c-gray">
-                  {service.description} · €{service.price}
+                  {service.description} · {service.duration}
                 </div>
               </div>
             </div>

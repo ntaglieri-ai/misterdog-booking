@@ -1,10 +1,21 @@
 import { Bath, Scissors, Sparkles, Ear, Smile, type LucideIcon } from "lucide-react"
 
+export type ServiceCategory = "igiene" | "styling" | "benessere"
+
+export const serviceCategories: { id: ServiceCategory | "tutti"; label: string }[] = [
+  { id: "tutti", label: "Tutti" },
+  { id: "igiene", label: "Igiene" },
+  { id: "styling", label: "Styling" },
+  { id: "benessere", label: "Benessere" },
+]
+
 export type Service = {
   id: string
   name: string
   description: string
-  price: number
+  category: ServiceCategory
+  duration: string
+  includes: string[]
   icon: LucideIcon
   defaultSelected?: boolean
 }
@@ -14,7 +25,13 @@ export const services: Service[] = [
     id: "bagno",
     name: "Bagno professionale",
     description: "Shampoo, balsamo, asciugatura",
-    price: 18,
+    category: "igiene",
+    duration: "45 min",
+    includes: [
+      "Shampoo specifico per il tipo di pelo",
+      "Balsamo districante",
+      "Asciugatura e spazzolatura",
+    ],
     icon: Bath,
     defaultSelected: true,
   },
@@ -22,7 +39,13 @@ export const services: Service[] = [
     id: "taglio",
     name: "Taglio e styling",
     description: "Taglio personalizzato",
-    price: 22,
+    category: "styling",
+    duration: "60 min",
+    includes: [
+      "Taglio a forbice o macchinetta",
+      "Rifinitura muso e zampe",
+      "Styling secondo la razza",
+    ],
     icon: Scissors,
     defaultSelected: true,
   },
@@ -30,21 +53,27 @@ export const services: Service[] = [
     id: "nail",
     name: "Nail trim",
     description: "Taglio unghie",
-    price: 8,
+    category: "igiene",
+    duration: "15 min",
+    includes: ["Taglio unghie", "Limatura", "Controllo dei cuscinetti"],
     icon: Sparkles,
   },
   {
     id: "orecchie",
     name: "Pulizia orecchie",
     description: "Ispezione e pulizia",
-    price: 6,
+    category: "igiene",
+    duration: "15 min",
+    includes: ["Ispezione del condotto", "Pulizia delicata", "Rimozione del pelo in eccesso"],
     icon: Ear,
   },
   {
     id: "denti",
-    name: "Igiene dentale",
-    description: "Pulizia denti",
-    price: 10,
+    name: "Pulizia denti ad ultrasuoni",
+    description: "Senza anestesia e senza stress",
+    category: "benessere",
+    duration: "30 min",
+    includes: ["Nessuna anestesia", "Rimozione del tartaro", "Contro l'alito pesante"],
     icon: Smile,
   },
 ]
@@ -63,9 +92,9 @@ export const shop = {
 }
 
 export const history = [
-  { icon: Scissors, title: "Toelettatura completa", date: "15 maggio 2025 · €45" },
-  { icon: Bath, title: "Bagno + Taglio", date: "3 marzo 2025 · €38" },
-  { icon: Scissors, title: "Toelettatura completa", date: "10 gennaio 2025 · €45" },
+  { icon: Scissors, title: "Toelettatura completa", date: "15 maggio 2025" },
+  { icon: Bath, title: "Bagno + Taglio", date: "3 marzo 2025" },
+  { icon: Scissors, title: "Toelettatura completa", date: "10 gennaio 2025" },
 ]
 
 export const allTimes = [

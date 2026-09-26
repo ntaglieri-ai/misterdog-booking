@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { Plus } from "lucide-react"
 import { AppHeader } from "@/components/app-header"
 import { NavTabs, type Section } from "@/components/nav-tabs"
@@ -8,36 +8,11 @@ import { AgendaSection } from "@/components/agenda-section"
 import { PrenotaSection } from "@/components/prenota-section"
 import { ClientiSection } from "@/components/clienti-section"
 import { Toast } from "@/components/toast"
-import type { Appointment, DayPart } from "@/lib/data"
-import {
-  deleteAppointmentById,
-  fetchAppointments,
-  saveAppointment,
-} from "@/lib/appointments-actions"
-
-function toMinutes(time: string): number {
-  const [h, m] = time.split(":").map(Number)
-  return h * 60 + (m || 0)
-}
-
-function partLabelForTime(time: string): DayPart["label"] {
-  return toMinutes(time) < 13 * 60 ? "Mattina" : "Pomeriggio"
-}
-
-function buildParts(appointments: Appointment[]): DayPart[] {
-  const sorted = [...appointments].sort((a, b) => toMinutes(a.time) - toMinutes(b.time))
-  return [
-    { label: "Mattina", appointments: sorted.filter((a) => partLabelForTime(a.time) === "Mattina") },
-    { label: "Pomeriggio", appointments: sorted.filter((a) => partLabelForTime(a.time) === "Pomeriggio") },
-  ]
-}
+import { agenda, type Appointment, type DayPart } from "@/lib/data"
 
 export default function AdminPage() {
   const [section, setSection] = useState<Section>("agenda")
-  const [parts, setParts] = useState<DayPart[]>([
-    { label: "Mattina", appointments: [] },
-    { label: "Pomeriggio", appointments: [] },
-  ])
+  const [parts, setParts] = useState<DayPart[]>(agenda)
   const [editing, setEditing] = useState<Appointment | null>(null)
   const [toast, setToast] = useState({ message: "", show: false })
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -50,26 +25,15 @@ export default function AdminPage() {
     }, 2500)
   }, [])
 
-  useEffect(() => {
-    fetchAppointments()
-      .then((appointments) => setParts(buildParts(appointments)))
-      .catch(() => showToast("Errore nel caricamento dell'agenda"))
-  }, [showToast])
-
   const handleDelete = useCallback(
-    async (id: string) => {
+    (id: string) => {
       setParts((prev) =>
         prev.map((part) => ({
           ...part,
           appointments: part.appointments.filter((appt) => appt.id !== id),
         })),
       )
-      try {
-        await deleteAppointmentById(id)
-        showToast("Appuntamento eliminato")
-      } catch {
-        showToast("Errore durante l'eliminazione")
-      }
+      showToast("Appuntamento eliminato")
     },
     [showToast],
   )
@@ -84,26 +48,11 @@ export default function AdminPage() {
     setSection("prenota")
   }, [])
 
-  const handleFormSubmit = useCallback(
-    async (appointment: Appointment) => {
-      try {
-        await saveAppointment(appointment)
-      } catch {
-        showToast("Errore nel salvataggio")
-        return
-      }
-      setParts((prev) => {
-        const withoutAppointment = prev.flatMap((part) => part.appointments).filter(
-          (a) => a.id !== appointment.id,
-        )
-        return buildParts([...withoutAppointment, appointment])
-      })
-      showToast(editing ? "Modifiche salvate!" : "Appuntamento salvato!")
-      setEditing(null)
-      setSection("agenda")
-    },
-    [editing, showToast],
-  )
+  const handleFormSubmit = useCallback(() => {
+    showToast(editing ? "Modifiche salvate!" : "Appuntamento salvato!")
+    setEditing(null)
+    setSection("agenda")
+  }, [editing, showToast])
 
   return (
     <div className="min-h-screen bg-background text-foreground">

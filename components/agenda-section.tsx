@@ -30,15 +30,9 @@ export function AgendaSection({ parts, onEdit, onDelete }: AgendaSectionProps) {
       <h1 className="font-serif text-xl text-brown">Buongiorno!</h1>
       <p className="mb-5 text-[13px] text-warm-gray">Oggi, sabato 7 giugno 2025</p>
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5">
-        <div className="rounded-2xl border border-border bg-card p-4 text-center">
-          <div className="font-serif text-3xl text-amber">{totalCount}</div>
-          <div className="mt-0.5 text-xs text-warm-gray">Appuntamenti oggi</div>
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-4 text-center">
-          <div className="font-serif text-3xl text-amber">€340</div>
-          <div className="mt-0.5 text-xs text-warm-gray">Incasso previsto</div>
-        </div>
+      <div className="mb-4 rounded-2xl border border-border bg-card p-4 text-center">
+        <div className="font-serif text-3xl text-amber">{totalCount}</div>
+        <div className="mt-0.5 text-xs text-warm-gray">Appuntamenti oggi</div>
       </div>
 
       {parts.map((part) => (
