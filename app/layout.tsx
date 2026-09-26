@@ -22,10 +22,11 @@ const fraunces = Fraunces({
 })
 
 export const metadata: Metadata = {
-  title: 'MisterDogDesk – Il tuo assistente per la toelettatura',
-  description: 'Gestisci appuntamenti, clienti e libretti sanitari della tua toelettatura',
+  title: 'Mister Dog Pet Salon – Prenota la toelettatura',
+  description: 'Prenota la toelettatura per il tuo amico a 4 zampe da Mister Dog Pet Salon, Avezzano.',
   generator: 'v0.app',
   applicationName: 'Mister Dog',
+  manifest: '/prenota.webmanifest',
   appleWebApp: {
     capable: true,
     title: 'Mister Dog',
