@@ -7,7 +7,6 @@ type ConfirmStepProps = {
   day: string | null
   time: string | null
   serviceNames: string[]
-  total: number
   note: string
   onNoteChange: (value: string) => void
 }
@@ -16,7 +15,6 @@ export function ConfirmStep({
   day,
   time,
   serviceNames,
-  total,
   note,
   onNoteChange,
 }: ConfirmStepProps) {
@@ -40,10 +38,6 @@ export function ConfirmStep({
           label="Servizi"
           value={serviceNames.length ? serviceNames.join(", ") : "–"}
         />
-        <div className="flex justify-between pb-1 pt-3.5 text-base font-semibold text-c-brown">
-          <span>Totale</span>
-          <span className="text-c-amber">€{total}</span>
-        </div>
       </div>
 
       <div className="mb-3 rounded-[18px] border border-c-border bg-white p-5">

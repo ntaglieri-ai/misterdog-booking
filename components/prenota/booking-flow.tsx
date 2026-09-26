@@ -10,8 +10,9 @@ import { DateStep } from "./date-step"
 import { ServicesStep } from "./services-step"
 import { ConfirmStep } from "./confirm-step"
 import { SuccessView } from "./success-view"
+import { CatalogView } from "./catalog-view"
 
-type View = "home" | "step1" | "step2" | "step3" | "success"
+type View = "home" | "catalog" | "step1" | "step2" | "step3" | "success"
 
 const defaultServices = services.filter((s) => s.defaultSelected).map((s) => s.id)
 
@@ -47,10 +48,6 @@ export function BookingFlow() {
     () => services.filter((s) => selectedServices.includes(s.id)),
     [selectedServices],
   )
-  const total = useMemo(
-    () => selectedServiceObjects.reduce((sum, s) => sum + s.price, 0),
-    [selectedServiceObjects],
-  )
   const serviceNames = selectedServiceObjects.map((s) => s.name)
 
   const showHero = view === "home"
@@ -64,7 +61,18 @@ export function BookingFlow() {
         {view === "home" && (
           <HomeView
             onBook={() => goTo("step1")}
+            onCatalog={() => goTo("catalog")}
             onCall={() => showToast(`Chiama ${shop.phone}`)}
+          />
+        )}
+
+        {view === "catalog" && (
+          <CatalogView
+            onBack={() => goTo("home")}
+            onBookService={(id) => {
+              setSelectedServices([id])
+              goTo("step1")
+            }}
           />
         )}
 
@@ -94,7 +102,6 @@ export function BookingFlow() {
               day={selectedDay}
               time={selectedTime}
               serviceNames={serviceNames}
-              total={total}
               note={note}
               onNoteChange={setNote}
             />
@@ -123,7 +130,6 @@ export function BookingFlow() {
           {view === "step2" && (
             <PrimaryButton onClick={() => goTo("step3")}>
               Continua <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              {total > 0 && <span className="ml-0.5">· €{total}</span>}
             </PrimaryButton>
           )}
           {view === "step3" && (

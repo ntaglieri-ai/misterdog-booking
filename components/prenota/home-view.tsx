@@ -1,12 +1,13 @@
-import { Calendar, Phone, Dog, PawPrint } from "lucide-react"
+import { BookOpen, Calendar, Phone, Dog, PawPrint } from "lucide-react"
 import { pet, history } from "@/lib/booking-data"
 
 type HomeViewProps = {
   onBook: () => void
+  onCatalog: () => void
   onCall: () => void
 }
 
-export function HomeView({ onBook, onCall }: HomeViewProps) {
+export function HomeView({ onBook, onCatalog, onCall }: HomeViewProps) {
   return (
     <div>
       {/* Prossimo appuntamento */}
@@ -33,6 +34,14 @@ export function HomeView({ onBook, onCall }: HomeViewProps) {
         >
           <Calendar className="mx-auto mb-1 h-5 w-5 text-c-brown" aria-hidden="true" />
           <div className="text-xs font-medium text-c-brown">Prenota</div>
+        </button>
+        <button
+          type="button"
+          onClick={onCatalog}
+          className="flex-1 rounded-[14px] border border-c-border bg-white p-3.5 text-center transition-colors hover:border-c-amber"
+        >
+          <BookOpen className="mx-auto mb-1 h-5 w-5 text-c-brown" aria-hidden="true" />
+          <div className="text-xs font-medium text-c-brown">Catalogo</div>
         </button>
         <button
           type="button"

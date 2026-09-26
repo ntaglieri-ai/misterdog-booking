@@ -89,7 +89,7 @@ export const clients: Client[] = [
     status: { label: "Cliente fissa", tone: "green" },
     phone: "347 123 4567",
     lastVisit: "15 mag",
-    tags: ["8 visite totali", "€320 spesi", "Vaccinazioni ok"],
+    tags: ["8 visite totali", "Vaccinazioni ok"],
   },
   {
     name: "Marco Bianchi",
@@ -98,7 +98,7 @@ export const clients: Client[] = [
     status: { label: "Da richiamare", tone: "amber" },
     phone: "328 987 6543",
     lastVisit: "2 apr",
-    tags: ["4 visite totali", "€148 spesi", "Vaccinazione scaduta"],
+    tags: ["4 visite totali", "Vaccinazione scaduta"],
   },
   {
     name: "Sara Conti",
@@ -107,7 +107,7 @@ export const clients: Client[] = [
     status: { label: "Cliente fissa", tone: "green" },
     phone: "333 456 7890",
     lastVisit: "20 mag",
-    tags: ["12 visite totali", "€510 spesi", "Vaccinazioni ok"],
+    tags: ["12 visite totali", "Vaccinazioni ok"],
   },
 ]
 
