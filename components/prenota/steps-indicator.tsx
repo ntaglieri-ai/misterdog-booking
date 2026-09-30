@@ -1,42 +1,33 @@
-import { Check } from "lucide-react"
+export const bookingSteps = ["Taglia", "Servizio", "Denti", "Riepilogo", "Data e ora", "I tuoi dati"] as const
 
-const steps = [
-  { n: 1, label: "Data" },
-  { n: 2, label: "Servizi" },
-  { n: 3, label: "Conferma" },
-]
-
-export function StepsIndicator({ current }: { current: 1 | 2 | 3 }) {
+export function StepsIndicator({ current }: { current: number }) {
+  const total = bookingSteps.length
   return (
-    <div className="mb-2 flex items-center gap-0 pb-1 pt-5">
-      {steps.map((step, i) => {
-        const done = step.n < current
-        const active = step.n === current
-        return (
-          <div key={step.n} className="contents">
-            <div className="flex flex-1 items-center gap-1.5">
-              <div
-                className={[
-                  "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-semibold transition-colors",
-                  done && "bg-c-sage text-white",
-                  active && "bg-c-amber text-white",
-                  !done && !active && "bg-c-border text-c-gray",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                {done ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : step.n}
-              </div>
-              <div className="whitespace-nowrap text-[11px] text-c-gray">
-                {step.label}
-              </div>
-            </div>
-            {i < steps.length - 1 && (
-              <div className="mx-1 h-px flex-1 bg-c-border" aria-hidden="true" />
-            )}
-          </div>
-        )
-      })}
+    <div className="flex flex-col gap-2 pb-4 pt-5">
+      <div className="flex items-baseline justify-between text-xs">
+        <span className="font-semibold text-c-brown">{bookingSteps[current - 1]}</span>
+        <span className="text-c-gray">
+          Passo {current} di {total}
+        </span>
+      </div>
+      <div
+        className="flex gap-1"
+        role="progressbar"
+        aria-valuemin={1}
+        aria-valuemax={total}
+        aria-valuenow={current}
+        aria-label="Avanzamento prenotazione"
+      >
+        {bookingSteps.map((label, i) => (
+          <span
+            key={label}
+            className={[
+              "h-1.5 flex-1 rounded-full transition-colors",
+              i < current ? "bg-c-amber" : "bg-c-border",
+            ].join(" ")}
+          />
+        ))}
+      </div>
     </div>
   )
 }

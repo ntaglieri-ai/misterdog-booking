@@ -1,142 +1,277 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
-import { ArrowRight } from "lucide-react"
-import { services, shop } from "@/lib/booking-data"
+import { useCallback, useMemo, useRef, useState, useTransition } from "react"
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
+import { mutate } from "swr"
+import { createAppointment } from "@/app/prenota/actions"
+import { shop } from "@/lib/booking-data"
+import { getService, type CatalogService, type DogSize } from "@/lib/services"
 import { BookingHero } from "./booking-hero"
 import { HomeView } from "./home-view"
-import { StepsIndicator } from "./steps-indicator"
-import { DateStep } from "./date-step"
-import { ServicesStep } from "./services-step"
-import { ConfirmStep } from "./confirm-step"
-import { SuccessView } from "./success-view"
 import { CatalogView } from "./catalog-view"
+import { StepsIndicator } from "./steps-indicator"
+import { SizeStep } from "./size-step"
+import { ServiceStep } from "./service-step"
+import { TeethStep } from "./teeth-step"
+import { SummaryStep } from "./summary-step"
+import { DateStep } from "./date-step"
+import { DetailsStep, type CustomerDetails } from "./details-step"
+import { SuccessView, type ConfirmedAppointment } from "./success-view"
 
-type View = "home" | "catalog" | "step1" | "step2" | "step3" | "success"
+type View = "home" | "catalog" | "booking" | "success"
+type Step = 1 | 2 | 3 | 4 | 5 | 6
 
-const defaultServices = services.filter((s) => s.defaultSelected).map((s) => s.id)
+const emptyDetails: CustomerDetails = { customerName: "", phone: "", dogName: "" }
 
 export function BookingFlow() {
   const [view, setView] = useState<View>("home")
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [selectedTime, setSelectedTime] = useState<string | null>(null)
-  const [selectedServices, setSelectedServices] = useState<string[]>(defaultServices)
-  const [note, setNote] = useState("")
+  const [step, setStep] = useState<Step>(1)
+  const [size, setSize] = useState<DogSize | null>(null)
+  const [primaryId, setPrimaryId] = useState<string | null>(null)
+  const [teethId, setTeethId] = useState<string | null>(null)
+  const [date, setDate] = useState<string | null>(null)
+  const [start, setStart] = useState<number | null>(null)
+  const [details, setDetails] = useState<CustomerDetails>(emptyDetails)
+  const [slotNotice, setSlotNotice] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [confirmed, setConfirmed] = useState<ConfirmedAppointment | null>(null)
+  const [isSaving, startSaving] = useTransition()
   const [toast, setToast] = useState({ message: "", show: false })
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showToast = useCallback((message: string) => {
     setToast({ message, show: true })
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
-    timeoutRef.current = setTimeout(() => {
-      setToast((t) => ({ ...t, show: false }))
-    }, 2500)
+    timeoutRef.current = setTimeout(() => setToast((t) => ({ ...t, show: false })), 2500)
   }, [])
 
-  const goTo = useCallback((next: View) => {
-    setView(next)
-    if (typeof window !== "undefined") window.scrollTo(0, 0)
+  const scrollTop = () => window.scrollTo(0, 0)
+
+  const resetBooking = useCallback(() => {
+    setSize(null)
+    setPrimaryId(null)
+    setTeethId(null)
+    setDate(null)
+    setStart(null)
+    setDetails(emptyDetails)
+    setSlotNotice(null)
+    setFormError(null)
   }, [])
 
-  const toggleService = useCallback((id: string) => {
-    setSelectedServices((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
-    )
-  }, [])
+  const startBooking = (preset?: CatalogService) => {
+    resetBooking()
+    if (preset?.size) {
+      setSize(preset.size)
+      setPrimaryId(preset.id)
+      setStep(2)
+    } else {
+      if (preset) setPrimaryId(preset.id)
+      setStep(1)
+    }
+    setView("booking")
+    scrollTop()
+  }
 
-  const selectedServiceObjects = useMemo(
-    () => services.filter((s) => selectedServices.includes(s.id)),
-    [selectedServices],
+  const goToStep = (next: Step) => {
+    setStep(next)
+    scrollTop()
+  }
+
+  const handleSize = (next: DogSize) => {
+    setSize(next)
+    // Il bagno dipende dalla taglia: se cambia, ricalcola lo stesso tipo di pelo.
+    const current = primaryId ? getService(primaryId) : undefined
+    if (current?.size) {
+      const coat = current.category === "bagno-corto" ? "corto" : "lungo"
+      setPrimaryId(`bagno-${coat}-${next.toLowerCase()}`)
+    }
+    setStart(null)
+  }
+
+  const selectedServices = useMemo(
+    () =>
+      [primaryId, teethId]
+        .map((id) => (id ? getService(id) : undefined))
+        .filter((s): s is CatalogService => Boolean(s)),
+    [primaryId, teethId],
   )
-  const serviceNames = selectedServiceObjects.map((s) => s.name)
+  const serviceIds = selectedServices.map((s) => s.id)
 
-  const showHero = view === "home"
-  const showBottomBar = view === "step1" || view === "step2" || view === "step3"
+  const canContinue =
+    (step === 1 && size !== null) ||
+    (step === 2 && primaryId !== null) ||
+    step === 3 ||
+    step === 4 ||
+    (step === 5 && date !== null && start !== null) ||
+    step === 6
+
+  const submit = () => {
+    if (!size || !date || start === null) return
+    setFormError(null)
+    startSaving(async () => {
+      const result = await createAppointment({ date, start, size, serviceIds, ...details })
+      if (result.ok) {
+        setConfirmed({
+  date,
+  start,
+  size,
+  services: selectedServices,
+  ...details,
+  cancelToken: result.cancelToken,
+})
+        mutate((key) => Array.isArray(key) && key[0] === "availability")
+        setView("success")
+        scrollTop()
+        return
+      }
+      if (result.slotTaken) {
+        setStart(null)
+        setSlotNotice(result.error)
+        mutate(["availability", date, ...serviceIds])
+        goToStep(5)
+        return
+      }
+      setFormError(result.error)
+    })
+  }
+
+  const next = () => {
+    if (step === 6) return submit()
+    setSlotNotice(null)
+    goToStep((step + 1) as Step)
+  }
+
+  const back = () => {
+    if (step === 1) {
+      setView("home")
+      scrollTop()
+      return
+    }
+    goToStep((step - 1) as Step)
+  }
 
   return (
     <div className="min-h-screen bg-c-bg text-c-brown">
-      {showHero && <BookingHero onStart={() => goTo("step1")} />}
+      {view === "home" && <BookingHero onStart={() => startBooking()} />}
 
-      <div className="mx-auto max-w-[480px] px-4 pb-24">
+      <main className="mx-auto max-w-[480px] px-4 pb-28">
         {view === "home" && (
           <HomeView
-            onBook={() => goTo("step1")}
-            onCatalog={() => goTo("catalog")}
+            onBook={() => startBooking()}
+            onCatalog={() => {
+              setView("catalog")
+              scrollTop()
+            }}
             onCall={() => showToast(`Chiama ${shop.phone}`)}
           />
         )}
 
         {view === "catalog" && (
           <CatalogView
-            onBack={() => goTo("home")}
-            onBookService={(id) => {
-              setSelectedServices([id])
-              goTo("step1")
+            onBack={() => {
+              setView("home")
+              scrollTop()
+            }}
+            onBookService={startBooking}
+          />
+        )}
+
+        {view === "booking" && (
+          <>
+            <StepsIndicator current={step} />
+            {step === 1 && <SizeStep selected={size} onSelect={handleSize} />}
+            {step === 2 && size && (
+              <ServiceStep
+                size={size}
+                selectedId={primaryId}
+                onSelect={(id) => {
+                  setPrimaryId(id)
+                  setStart(null)
+                }}
+              />
+            )}
+            {step === 3 && (
+              <TeethStep
+                selectedId={teethId}
+                onSelect={(id) => {
+                  setTeethId(id)
+                  setStart(null)
+                }}
+              />
+            )}
+            {step === 4 && size && <SummaryStep size={size} services={selectedServices} />}
+            {step === 5 && (
+              <DateStep
+                serviceIds={serviceIds}
+                selectedDate={date}
+                selectedStart={start}
+                notice={slotNotice}
+                onSelectDate={(d) => {
+                  setDate(d)
+                  setStart(null)
+                  setSlotNotice(null)
+                }}
+                onSelectStart={(s) => {
+                  setStart(s)
+                  setSlotNotice(null)
+                }}
+              />
+            )}
+            {step === 6 && (
+              <DetailsStep
+                value={details}
+                onChange={setDetails}
+                error={formError}
+                onSubmit={submit}
+              />
+            )}
+          </>
+        )}
+
+        {view === "success" && confirmed && (
+          <SuccessView
+            appointment={confirmed}
+            onHome={() => {
+              resetBooking()
+              setConfirmed(null)
+              setView("home")
+              scrollTop()
             }}
           />
         )}
+      </main>
 
-        {view === "step1" && (
-          <>
-            <StepsIndicator current={1} />
-            <DateStep
-              selectedDay={selectedDay}
-              selectedTime={selectedTime}
-              onSelectDay={setSelectedDay}
-              onSelectTime={setSelectedTime}
-            />
-          </>
-        )}
-
-        {view === "step2" && (
-          <>
-            <StepsIndicator current={2} />
-            <ServicesStep selected={selectedServices} onToggle={toggleService} />
-          </>
-        )}
-
-        {view === "step3" && (
-          <>
-            <StepsIndicator current={3} />
-            <ConfirmStep
-              day={selectedDay}
-              time={selectedTime}
-              serviceNames={serviceNames}
-              note={note}
-              onNoteChange={setNote}
-            />
-          </>
-        )}
-
-        {view === "success" && (
-          <SuccessView
-            day={selectedDay}
-            time={selectedTime}
-            onHome={() => goTo("home")}
-          />
-        )}
-      </div>
-
-      {showBottomBar && (
-        <div className="fixed inset-x-0 bottom-0 z-[200] mx-auto max-w-[480px] border-t border-c-border bg-c-bg px-5 pb-6 pt-3">
-          {view === "step1" && (
-            <PrimaryButton
-              disabled={!selectedDay || !selectedTime}
-              onClick={() => goTo("step2")}
-            >
-              Continua <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </PrimaryButton>
-          )}
-          {view === "step2" && (
-            <PrimaryButton onClick={() => goTo("step3")}>
-              Continua <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </PrimaryButton>
-          )}
-          {view === "step3" && (
-            <PrimaryButton onClick={() => goTo("success")}>
-              Conferma prenotazione
-            </PrimaryButton>
-          )}
+      {view === "booking" && (
+        <div className="fixed inset-x-0 bottom-0 z-[200] mx-auto flex max-w-[480px] gap-2.5 border-t border-c-border bg-c-bg px-4 pb-6 pt-3">
+          <button
+            type="button"
+            onClick={back}
+            aria-label="Indietro"
+            className="flex h-[50px] w-[50px] flex-shrink-0 items-center justify-center rounded-[14px] border border-c-border bg-white text-c-brown transition-colors hover:border-c-amber"
+          >
+            <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <button
+            type={step === 6 ? "submit" : "button"}
+            form={step === 6 ? "details-form" : undefined}
+            onClick={step === 6 ? undefined : next}
+            disabled={!canContinue || isSaving}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-[14px] bg-c-amber py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#2e90c4] disabled:cursor-not-allowed disabled:bg-c-border disabled:text-c-gray"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Salvataggio...
+              </>
+            ) : step === 6 ? (
+              "Conferma prenotazione"
+            ) : (
+              <>
+                {step === 3 && !teethId ? "Salta" : "Continua"}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </>
+            )}
+          </button>
         </div>
       )}
 
@@ -151,26 +286,5 @@ export function BookingFlow() {
         {toast.message}
       </div>
     </div>
-  )
-}
-
-function PrimaryButton({
-  children,
-  disabled,
-  onClick,
-}: {
-  children: React.ReactNode
-  disabled?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex w-full items-center justify-center gap-1.5 rounded-[14px] bg-c-amber py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#2e90c4] disabled:cursor-not-allowed disabled:bg-c-border disabled:text-c-gray"
-    >
-      {children}
-    </button>
   )
 }

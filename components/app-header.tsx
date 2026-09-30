@@ -1,6 +1,7 @@
 import Image from "next/image"
+import type { ReactNode } from "react"
 
-export function AppHeader() {
+export function AppHeader({ actions }: { actions?: ReactNode }) {
   return (
     <header className="sticky top-0 z-40 flex h-[68px] items-center justify-between bg-[#87CEEB] px-5">
       <div className="flex items-center gap-2.5">
@@ -23,11 +24,13 @@ export function AppHeader() {
           </div>
         </div>
       </div>
-      <div className="text-right text-[11px] font-medium leading-tight text-[#1A2E5A]">
-        Avezzano
-        <br />
-        <span className="text-[#1A2E5A]/60">★★★★★</span>
-      </div>
+      {actions ?? (
+        <div className="text-right text-[11px] font-medium leading-tight text-[#1A2E5A]">
+          Avezzano
+          <br />
+          <span className="text-[#1A2E5A]/60">★★★★★</span>
+        </div>
+      )}
     </header>
   )
 }
