@@ -1,11 +1,12 @@
 import "server-only"
 import { createHmac, timingSafeEqual } from "node:crypto"
 import { cookies, headers } from "next/headers"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 
 const COOKIE = "md_admin"
 const SESSION_DAYS = 30
 const MAX_FAILURES = 5
-const LOCK_MS = 5 * 60 * 1000
+const LOCK_MS = 15 * 60 * 1000
 
 /** Il cookie contiene solo una firma derivata dal PIN: cambiando ADMIN_PIN si esce da tutti i dispositivi. */
 function sessionValue() {
@@ -36,12 +37,49 @@ export async function requireAdmin() {
   if (!(await isAdmin())) throw new Error("Non autorizzato")
 }
 
-// Limite tentativi in memoria: basta a frenare chi prova PIN a raffica.
-const failures = new Map<string, { count: number; lockedUntil: number }>()
+type Attempt = { failures: number; lockedUntil: number }
+
+// Fallback in memoria se la tabella admin_login_attempts non è ancora stata creata.
+const memoryAttempts = new Map<string, Attempt>()
 
 async function clientKey() {
   const h = await headers()
   return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown"
+}
+
+async function readAttempt(key: string): Promise<Attempt> {
+  const { data, error } = await supabaseAdmin()
+    .from("admin_login_attempts")
+    .select("failures, locked_until")
+    .eq("key", key)
+    .maybeSingle()
+  if (error) return memoryAttempts.get(key) ?? { failures: 0, lockedUntil: 0 }
+  return {
+    failures: data?.failures ?? 0,
+    lockedUntil: data?.locked_until ? new Date(data.locked_until).getTime() : 0,
+  }
+}
+
+async function writeAttempt(key: string, attempt: Attempt) {
+  memoryAttempts.set(key, attempt)
+  await supabaseAdmin()
+    .from("admin_login_attempts")
+    .upsert({
+      key,
+      failures: attempt.failures,
+      locked_until: attempt.lockedUntil ? new Date(attempt.lockedUntil).toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+}
+
+async function clearAttempt(key: string) {
+  memoryAttempts.delete(key)
+  await supabaseAdmin().from("admin_login_attempts").delete().eq("key", key)
+}
+
+function lockedMessage(lockedUntil: number) {
+  const minutes = Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000))
+  return `Troppi tentativi sbagliati. Riprova tra ${minutes} ${minutes === 1 ? "minuto" : "minuti"}.`
 }
 
 export async function signIn(pin: string): Promise<{ ok: true } | { ok: false; error: string }> {
@@ -49,22 +87,27 @@ export async function signIn(pin: string): Promise<{ ok: true } | { ok: false; e
   if (!expectedPin) return { ok: false, error: "PIN non configurato sul server." }
 
   const key = await clientKey()
-  const entry = failures.get(key)
-  if (entry && entry.lockedUntil > Date.now()) {
-    return { ok: false, error: "Troppi tentativi. Riprova tra qualche minuto." }
-  }
+  const attempt = await readAttempt(key)
+  const now = Date.now()
+  if (attempt.lockedUntil > now) return { ok: false, error: lockedMessage(attempt.lockedUntil) }
+
+  // Dopo la fine di un blocco si riparte da zero.
+  const previousFailures = attempt.lockedUntil ? 0 : attempt.failures
 
   if (!safeEqual(pin.trim(), expectedPin)) {
-    const count = (entry?.count ?? 0) + 1
-    failures.set(key, {
-      count: count >= MAX_FAILURES ? 0 : count,
-      lockedUntil: count >= MAX_FAILURES ? Date.now() + LOCK_MS : 0,
-    })
+    const failures = previousFailures + 1
+    const locked = failures >= MAX_FAILURES
+    await writeAttempt(key, { failures, lockedUntil: locked ? now + LOCK_MS : 0 })
     await new Promise((r) => setTimeout(r, 400))
-    return { ok: false, error: "PIN errato." }
+    if (locked) return { ok: false, error: lockedMessage(now + LOCK_MS) }
+    const left = MAX_FAILURES - failures
+    return {
+      ok: false,
+      error: `PIN errato. ${left === 1 ? "Ultimo tentativo" : `Ancora ${left} tentativi`} prima del blocco.`,
+    }
   }
 
-  failures.delete(key)
+  await clearAttempt(key)
   ;(await cookies()).set(COOKIE, sessionValue()!, {
     httpOnly: true,
     secure: true,
