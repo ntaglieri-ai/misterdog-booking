@@ -1,9 +1,10 @@
 "use server"
 
 import { randomBytes } from "node:crypto"
+import { revalidatePath } from "next/cache"
 import { getAvailableStarts, type BookedInterval } from "@/lib/availability"
-import { BOOKING_DAYS_AHEAD, SLOT_MINUTES } from "@/lib/config"
-import { pb } from "@/lib/pocketbase"
+import { isCancelToken } from "@/lib/appointments"
+import { BOOKING_DAYS_AHEAD, MAX_DOGS_PER_SLOT, SLOT_MINUTES } from "@/lib/config"
 import {
   getService,
   isSize,
@@ -11,19 +12,12 @@ import {
   type CatalogService,
   type DogSize,
 } from "@/lib/services"
-import {
-  addDays,
-  fromPbDate,
-  shopNow,
-  shopTimeToUtc,
-  toPbDate,
-  utcToShopMinutes,
-} from "@/lib/shop-time"
+import { addDays, shopNow, shopTimeToUtc, utcToShopMinutes } from "@/lib/shop-time"
+import { supabaseAdmin } from "@/lib/supabase/admin"
 
-const COLLECTION = "appointments"
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
-type AppointmentRecord = { id: string; start: string; end: string; status: string }
+type Interval = BookedInterval & { id: string }
 
 function resolveServices(serviceIds: unknown): CatalogService[] | null {
   if (!Array.isArray(serviceIds) || serviceIds.length === 0 || serviceIds.length > 3) return null
@@ -42,25 +36,35 @@ function isBookableDate(date: unknown): date is string {
   return date >= today && date <= addDays(today, BOOKING_DAYS_AHEAD)
 }
 
-async function loadDay(date: string): Promise<(BookedInterval & { id: string })[]> {
-  const dayStart = toPbDate(shopTimeToUtc(date, 0))
-  const dayEnd = toPbDate(shopTimeToUtc(addDays(date, 1), 0))
-  const filter = `start < "${dayEnd}" && end > "${dayStart}" && status != "cancellato"`
-  const params = new URLSearchParams({
-    filter,
-    perPage: "500",
-    fields: "id,start,end,status",
-    skipTotal: "1",
-  })
-  const res = await pb<{ items: AppointmentRecord[] }>(
-    `/api/collections/${COLLECTION}/records?${params}`,
-  )
-  return res.items.map((r) => ({
+/** Legge solo gli intervalli occupati del giorno: nessun nome o telefono. */
+async function loadDay(date: string): Promise<Interval[]> {
+  const dayStart = shopTimeToUtc(date, 0).toISOString()
+  const dayEnd = shopTimeToUtc(addDays(date, 1), 0).toISOString()
+  const db = supabaseAdmin()
+
+  const [appointments, blocked] = await Promise.all([
+    db
+      .from("appointments")
+      .select("id, start_at, end_at")
+      .eq("status", "confermato")
+      .lt("start_at", dayEnd)
+      .gt("end_at", dayStart),
+    db.from("blocked_slots").select("id, start_at, end_at").lt("start_at", dayEnd).gt("end_at", dayStart),
+  ])
+  if (appointments.error) throw new Error(appointments.error.message)
+  if (blocked.error) throw new Error(blocked.error.message)
+
+  const toInterval = (r: { id: string; start_at: string; end_at: string }): Interval => ({
     id: r.id,
-    start: utcToShopMinutes(fromPbDate(r.start), date),
-    end: utcToShopMinutes(fromPbDate(r.end), date),
-    status: r.status,
-  }))
+    start: utcToShopMinutes(new Date(r.start_at), date),
+    end: utcToShopMinutes(new Date(r.end_at), date),
+  })
+
+  // Un blocco di Clara occupa l'intera capienza dello slot.
+  const blockedIntervals = blocked.data.flatMap((r) =>
+    Array.from({ length: MAX_DOGS_PER_SLOT }, () => toInterval(r)),
+  )
+  return [...appointments.data.map(toInterval), ...blockedIntervals]
 }
 
 function availabilityFor(date: string, durationMin: number, appointments: BookedInterval[]) {
@@ -99,7 +103,7 @@ export type CreateAppointmentInput = {
 }
 
 export type CreateAppointmentResult =
-  | { ok: true }
+  | { ok: true; cancelToken: string }
   | { ok: false; error: string; slotTaken?: boolean }
 
 function clean(value: unknown, max: number) {
@@ -139,35 +143,58 @@ export async function createAppointment(
     const before = await loadDay(input.date)
     if (!availabilityFor(input.date, durationMin, before).includes(input.start)) return slotTaken
 
-    const start = shopTimeToUtc(input.date, input.start)
-    const end = shopTimeToUtc(input.date, input.start + durationMin)
-    const created = await pb<AppointmentRecord>(`/api/collections/${COLLECTION}/records`, {
-      method: "POST",
-      body: JSON.stringify({
-        start: toPbDate(start),
-        end: toPbDate(end),
+    const cancelToken = randomBytes(24).toString("base64url")
+    const db = supabaseAdmin()
+    const { data: created, error } = await db
+      .from("appointments")
+      .insert({
+        start_at: shopTimeToUtc(input.date, input.start).toISOString(),
+        end_at: shopTimeToUtc(input.date, input.start + durationMin).toISOString(),
         duration_min: durationMin,
-        services: list.map((s) => ({ name: s.name, price: s.priceFrom })),
+        services: list.map((s) => ({ id: s.id, name: s.name })),
         size: input.size,
         customer_name: customerName,
         phone,
         dog_name: dogName,
-        status: "confermato",
-        cancel_token: randomBytes(24).toString("base64url"),
-      }),
-    })
+        cancel_token: cancelToken,
+      })
+      .select("id")
+      .single()
+    if (error) throw new Error(error.message)
 
     // Controllo dopo il salvataggio: se due clienti hanno prenotato lo stesso
-    // orario nello stesso istante, chi sfora la capienza viene annullato.
+    // orario nello stesso istante, chi sfora la capienza viene rimosso.
     const others = (await loadDay(input.date)).filter((a) => a.id !== created.id)
     if (!availabilityFor(input.date, durationMin, others).includes(input.start)) {
-      await pb(`/api/collections/${COLLECTION}/records/${created.id}`, { method: "DELETE" })
+      await db.from("appointments").delete().eq("id", created.id)
       return slotTaken
     }
 
-    return { ok: true }
+    return { ok: true, cancelToken }
   } catch (error) {
     console.error("[prenota] Errore salvataggio appuntamento:", error)
     return { ok: false, error: "Non siamo riusciti a salvare la prenotazione. Riprova." }
+  }
+}
+
+export async function cancelAppointment(
+  token: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isCancelToken(token)) return { ok: false, error: "Link non valido." }
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("appointments")
+      .update({ status: "cancellato" })
+      .eq("cancel_token", token)
+      .eq("status", "confermato")
+      .gt("start_at", new Date().toISOString())
+      .select("id")
+    if (error) throw new Error(error.message)
+    if (!data.length) return { ok: false, error: "Questo appuntamento non si può più annullare." }
+    revalidatePath(`/prenota/appuntamento/${token}`)
+    return { ok: true }
+  } catch (error) {
+    console.error("[prenota] Errore annullamento:", error)
+    return { ok: false, error: "Non siamo riusciti ad annullare. Riprova o chiamaci." }
   }
 }

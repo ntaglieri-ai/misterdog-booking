@@ -111,7 +111,14 @@ export function BookingFlow() {
     startSaving(async () => {
       const result = await createAppointment({ date, start, size, serviceIds, ...details })
       if (result.ok) {
-        setConfirmed({ date, start, size, services: selectedServices, ...details })
+        setConfirmed({
+  date,
+  start,
+  size,
+  services: selectedServices,
+  ...details,
+  cancelToken: result.cancelToken,
+})
         mutate((key) => Array.isArray(key) && key[0] === "availability")
         setView("success")
         scrollTop()

@@ -13,6 +13,7 @@ export type ConfirmedAppointment = {
   customerName: string
   phone: string
   dogName: string
+  cancelToken: string
 }
 
 export function SuccessView({
@@ -64,6 +65,13 @@ export function SuccessView({
         <Line icon={MapPin} text={shop.address} />
         <Line icon={Phone} text={`Per modifiche chiama il ${shop.phone}`} />
       </div>
+
+      <a
+        href={`/prenota/appuntamento/${appointment.cancelToken}`}
+        className="mb-3 block w-full rounded-[14px] border border-c-border bg-white py-3.5 text-center text-[15px] font-semibold text-c-brown transition-colors hover:bg-c-sage-pale"
+      >
+        Vedi o annulla l&apos;appuntamento
+      </a>
 
       <button
         type="button"

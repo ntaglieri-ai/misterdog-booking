@@ -51,15 +51,6 @@ export function addDays(date: string, days: number) {
   return next.toISOString().slice(0, 10)
 }
 
-/** Formato datetime usato da PocketBase nei filtri: "YYYY-MM-DD HH:MM:SS.sssZ". */
-export function toPbDate(date: Date) {
-  return date.toISOString().replace("T", " ")
-}
-
-export function fromPbDate(value: string) {
-  return new Date(value.replace(" ", "T"))
-}
-
 const longDate = new Intl.DateTimeFormat("it-IT", {
   weekday: "long",
   day: "numeric",
