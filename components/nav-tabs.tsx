@@ -1,13 +1,14 @@
 "use client"
 
-import { Calendar, Plus, Users } from "lucide-react"
+import { Calendar, CalendarX, Plus, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type Section = "agenda" | "prenota" | "clienti"
+export type Section = "agenda" | "nuovo" | "chiusure" | "clienti"
 
 const tabs: { id: Section; label: string; icon: typeof Calendar }[] = [
   { id: "agenda", label: "Agenda", icon: Calendar },
-  { id: "prenota", label: "Prenota", icon: Plus },
+  { id: "nuovo", label: "Nuovo", icon: Plus },
+  { id: "chiusure", label: "Chiusure", icon: CalendarX },
   { id: "clienti", label: "Clienti", icon: Users },
 ]
 
@@ -19,7 +20,7 @@ export function NavTabs({
   onChange: (section: Section) => void
 }) {
   return (
-    <nav className="flex border-b border-border bg-card" aria-label="Sezioni">
+    <nav className="sticky top-[68px] z-30 flex border-b border-border bg-card" aria-label="Sezioni">
       {tabs.map((tab) => {
         const Icon = tab.icon
         const isActive = active === tab.id
@@ -30,10 +31,8 @@ export function NavTabs({
             onClick={() => onChange(tab.id)}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-3.5 text-[13px] font-medium transition-colors",
-              isActive
-                ? "border-amber text-amber"
-                : "border-transparent text-warm-gray",
+              "flex flex-1 flex-col items-center justify-center gap-1 whitespace-nowrap border-b-2 px-1 py-2.5 text-[12px] font-medium transition-colors sm:flex-row sm:gap-1.5 sm:py-3.5 sm:text-[13px]",
+              isActive ? "border-amber text-sage" : "border-transparent text-warm-gray",
             )}
           >
             <Icon className="h-4 w-4" aria-hidden="true" />
