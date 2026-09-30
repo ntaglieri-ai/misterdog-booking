@@ -1,6 +1,6 @@
 "use server"
 
-import { randomBytes } from "node:crypto"
+import { randomBytes, randomUUID } from "node:crypto"
 import { revalidatePath } from "next/cache"
 import { getAvailableStarts, type BookedInterval } from "@/lib/availability"
 import { isCancelToken } from "@/lib/appointments"
@@ -148,6 +148,9 @@ export async function createAppointment(
     const { data: created, error } = await db
       .from("appointments")
       .insert({
+        // La tabella esistente ha id di tipo testo senza default: lo generiamo qui.
+        id: randomUUID(),
+        date: input.date,
         start_at: shopTimeToUtc(input.date, input.start).toISOString(),
         end_at: shopTimeToUtc(input.date, input.start + durationMin).toISOString(),
         duration_min: durationMin,
