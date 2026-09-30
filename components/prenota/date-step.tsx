@@ -1,136 +1,153 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Phone, MessageCircle } from "lucide-react"
-import { allTimes, busyTimes, buildDays, contact } from "@/lib/booking-data"
+import { useMemo } from "react"
+import useSWR from "swr"
+import { Loader2, MessageCircle, Phone } from "lucide-react"
+import { getAvailableTimes } from "@/app/prenota/actions"
+import { formatMinutes, isClosedDay } from "@/lib/availability"
+import { BOOKING_DAYS_AHEAD } from "@/lib/config"
+import { contact, dayNames, monthNames } from "@/lib/booking-data"
+import { addDays, shopNow } from "@/lib/shop-time"
 
 type DateStepProps = {
-  selectedDay: string | null
-  selectedTime: string | null
-  onSelectDay: (label: string) => void
-  onSelectTime: (time: string) => void
+  serviceIds: string[]
+  selectedDate: string | null
+  selectedStart: number | null
+  onSelectDate: (date: string) => void
+  onSelectStart: (start: number) => void
+  notice?: string | null
 }
 
 export function DateStep({
-  selectedDay,
-  selectedTime,
-  onSelectDay,
-  onSelectTime,
+  serviceIds,
+  selectedDate,
+  selectedStart,
+  onSelectDate,
+  onSelectStart,
+  notice,
 }: DateStepProps) {
-  const days = useMemo(() => buildDays(10), [])
-  const [fullDayLabel, setFullDayLabel] = useState<string | null>(null)
+  const days = useMemo(() => {
+    const today = shopNow().date
+    return Array.from({ length: BOOKING_DAYS_AHEAD + 1 }, (_, i) => {
+      const date = addDays(today, i)
+      const [y, m, d] = date.split("-").map(Number)
+      const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+      return { date, name: dayNames[dow], num: d, month: monthNames[m - 1], closed: isClosedDay(date) }
+    })
+  }, [])
+
+  const { data, isLoading } = useSWR(
+    selectedDate ? ["availability", selectedDate, ...serviceIds] : null,
+    () => getAvailableTimes({ date: selectedDate!, serviceIds }),
+    { revalidateOnFocus: true, refreshInterval: 60_000 },
+  )
 
   return (
-    <div className="rounded-[18px] border border-c-border bg-white p-5">
-      <h2 className="mb-3.5 font-display text-[17px] text-c-brown">
-        Scegli il giorno
-      </h2>
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
-        {days.map((day, i) => {
-          const isSelected = selectedDay === day.label
-          const isFullSelected = fullDayLabel === day.label
-          return (
-            <button
-              key={i}
-              type="button"
-              disabled={day.disabled}
-              onClick={() => {
-                if (day.full) {
-                  setFullDayLabel((prev) => (prev === day.label ? null : day.label))
-                  return
-                }
-                setFullDayLabel(null)
-                onSelectDay(day.label)
-              }}
-              aria-pressed={isSelected || isFullSelected}
-              className={[
-                "flex flex-shrink-0 flex-col items-center rounded-xl border px-3.5 py-2.5 transition-colors",
-                day.disabled && "pointer-events-none opacity-35",
-                day.full
-                  ? isFullSelected
-                    ? "border-c-gray bg-[#ececec] text-c-gray"
-                    : "border-c-border bg-[#f5f5f5] text-[#bdbdbd]"
-                  : isSelected
-                    ? "border-c-amber bg-c-amber text-white"
-                    : "border-c-border bg-white text-c-brown",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              <span className="text-[10px] font-medium opacity-70">{day.name}</span>
-              <span className="my-0.5 text-lg font-semibold">{day.num}</span>
-              <span
+    <section className="flex flex-col gap-5">
+      <div>
+        <h2 className="mb-3 font-display text-xl text-c-brown">Scegli il giorno</h2>
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
+          {days.map((day) => {
+            const active = selectedDate === day.date
+            return (
+              <button
+                key={day.date}
+                type="button"
+                disabled={day.closed}
+                aria-pressed={active}
+                aria-label={`${day.name} ${day.num} ${day.month}${day.closed ? " (chiuso)" : ""}`}
+                onClick={() => onSelectDate(day.date)}
                 className={[
-                  "h-1 w-1 rounded-full",
-                  day.full
-                    ? "bg-transparent"
-                    : isSelected
-                      ? "bg-white"
-                      : "bg-c-sage",
-                ].join(" ")}
-                aria-hidden="true"
-              />
-            </button>
-          )
-        })}
+                  "flex min-w-14 flex-shrink-0 flex-col items-center rounded-xl border px-3 py-2.5 transition-colors",
+                  day.closed && "cursor-not-allowed opacity-35",
+                  active
+                    ? "border-c-amber bg-c-amber text-white"
+                    : "border-c-border bg-white text-c-brown hover:border-c-amber",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              >
+                <span className="text-[10px] font-medium uppercase opacity-70">{day.name}</span>
+                <span className="text-lg font-semibold">{day.num}</span>
+                <span className="text-[10px] opacity-70">{day.month}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {fullDayLabel && (
-        <div className="mb-4 rounded-[14px] border border-c-amber/40 bg-c-amber-pale p-4">
-          <p className="mb-3 text-center text-[14px] font-medium text-c-brown">
-            Giorno completo <span aria-hidden="true">🐾</span>
-            <br />
-            Contatta Clara per disponibilità
-          </p>
-          <div className="flex gap-2.5">
-            <a
-              href={contact.phoneHref}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-c-brown px-3 py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
-            >
-              <Phone className="h-4 w-4" aria-hidden="true" />
-              Chiama
-            </a>
-            <a
-              href={contact.whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-c-sage px-3 py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
-            >
-              <MessageCircle className="h-4 w-4" aria-hidden="true" />
-              WhatsApp
-            </a>
-          </div>
-        </div>
+      {notice && (
+        <p role="alert" className="rounded-xl border border-c-amber/40 bg-c-amber-pale px-4 py-3 text-sm font-medium text-c-brown">
+          {notice}
+        </p>
       )}
 
-      <h2 className="mb-3.5 font-display text-[17px] text-c-brown">
-        Orario disponibile
-      </h2>
-      <div className="grid grid-cols-3 gap-2">
-        {allTimes.map((time) => {
-          const busy = busyTimes.includes(time)
-          const isSelected = selectedTime === time
-          return (
-            <button
-              key={time}
-              type="button"
-              disabled={busy}
-              onClick={() => onSelectTime(time)}
-              className={[
-                "rounded-[10px] border p-2.5 text-center text-[13px] font-medium transition-colors",
-                busy && "pointer-events-none bg-[#f5f5f5] text-[#bdbdbd] line-through",
-                isSelected
-                  ? "border-c-amber bg-c-amber text-white"
-                  : !busy &&
-                    "border-c-border bg-white text-c-brown hover:border-c-amber hover:text-c-amber",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-            >
-              {time}
-            </button>
-          )
-        })}
+      {selectedDate && (
+        <div>
+          <h2 className="mb-3 font-display text-xl text-c-brown">Orari disponibili</h2>
+          {isLoading || !data ? (
+            <p className="flex items-center gap-2 text-sm text-c-gray">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Carico gli orari...
+            </p>
+          ) : !data.ok ? (
+            <p role="alert" className="text-sm text-c-brown">{data.error}</p>
+          ) : data.starts.length === 0 ? (
+            <FullDay />
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {data.starts.map((start) => {
+                const active = selectedStart === start
+                return (
+                  <button
+                    key={start}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => onSelectStart(start)}
+                    className={[
+                      "rounded-[10px] border p-2.5 text-center text-sm font-medium transition-colors",
+                      active
+                        ? "border-c-amber bg-c-amber text-white"
+                        : "border-c-border bg-white text-c-brown hover:border-c-amber",
+                    ].join(" ")}
+                  >
+                    {formatMinutes(start)}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function FullDay() {
+  return (
+    <div className="rounded-[14px] border border-c-amber/40 bg-c-amber-pale p-4">
+      <p className="mb-3 text-center text-sm font-medium text-c-brown">
+        Nessun orario libero per questo servizio.
+        <br />
+        Scegli un altro giorno o contatta Clara.
+      </p>
+      <div className="flex gap-2.5">
+        <a
+          href={contact.phoneHref}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-c-brown px-3 py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+        >
+          <Phone className="h-4 w-4" aria-hidden="true" />
+          Chiama
+        </a>
+        <a
+          href={contact.whatsappHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-c-sage px-3 py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+        >
+          <MessageCircle className="h-4 w-4" aria-hidden="true" />
+          WhatsApp
+        </a>
       </div>
     </div>
   )
