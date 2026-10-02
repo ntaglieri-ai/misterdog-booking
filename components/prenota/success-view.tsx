@@ -1,4 +1,4 @@
-import { Calendar, CheckCircle2, Clock, Dog, MapPin, Phone } from "lucide-react"
+import { Calendar, Cat, CheckCircle2, Clock, Dog, MapPin, Phone } from "lucide-react"
 import { shop } from "@/lib/booking-data"
 import { formatMinutes } from "@/lib/availability"
 import { formatDuration, formatPrice, summarize, type CatalogService, type DogSize } from "@/lib/services"
@@ -8,7 +8,7 @@ import { PRICE_NOTE } from "./summary-step"
 export type ConfirmedAppointment = {
   date: string
   start: number
-  size: DogSize
+  size: DogSize | null
   services: CatalogService[]
   customerName: string
   phone: string
@@ -43,7 +43,10 @@ export function SuccessView({
         <div className="flex flex-col gap-2.5 border-b border-c-border pb-4 text-sm text-c-brown">
           <Line icon={Calendar} text={formatLongDate(appointment.date)} bold />
           <Line icon={Clock} text={`${formatMinutes(appointment.start)} – ${formatMinutes(end)} (${formatDuration(total.durationMin)})`} bold />
-          <Line icon={Dog} text={`${appointment.dogName} · taglia ${appointment.size}`} />
+          <Line
+            icon={appointment.size ? Dog : Cat}
+            text={`${appointment.dogName} · ${appointment.size ? `taglia ${appointment.size}` : "gatto"}`}
+          />
           <Line icon={Phone} text={appointment.phone} />
         </div>
         <ul className="border-b border-c-border py-2">
