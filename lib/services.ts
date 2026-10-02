@@ -9,7 +9,10 @@ export type ServiceCategoryId =
   | "riccio"
   | "liscio"
   | "extra"
+  | "gatto"
   | "denti"
+
+export type Pet = "cane" | "gatto"
 
 export type CatalogService = {
   id: string
@@ -36,6 +39,7 @@ export const categories: { id: ServiceCategoryId; label: string; note?: string }
   { id: "riccio", label: "Taglio pelo riccio" },
   { id: "liscio", label: "Taglio pelo liscio", note: "Rifiniture a forbice" },
   { id: "extra", label: "Tagli extra" },
+  { id: "gatto", label: "Gatto" },
   { id: "denti", label: "Pulizia denti a ultrasuoni" },
 ]
 
@@ -64,6 +68,9 @@ export const services: CatalogService[] = [
   { id: "stripping-jack-russell", name: "Stripping Jack Russell", category: "extra", size: null, exampleBreed: "Jack Russell", priceFrom: 40, isFrom: true, durationMin: 60 },
   { id: "trimming-cocker", name: "Trimming Cocker", category: "extra", size: null, exampleBreed: "Cocker", priceFrom: 45, isFrom: true, durationMin: 60 },
 
+  { id: "gatto-corto", name: "Gatto pelo corto", category: "gatto", size: null, exampleBreed: "", priceFrom: 25, isFrom: false, durationMin: 30 },
+  { id: "gatto-lungo", name: "Gatto pelo lungo", category: "gatto", size: null, exampleBreed: "", priceFrom: 35, isFrom: false, durationMin: 45 },
+
   { id: "denti-base", name: "Pulizia denti base", category: "denti", size: null, exampleBreed: "", priceFrom: 20, isFrom: false, durationMin: 30 },
   { id: "denti-profonda", name: "Pulizia denti profonda", category: "denti", size: null, exampleBreed: "", priceFrom: 40, isFrom: false, durationMin: 30 },
 ]
@@ -82,9 +89,16 @@ export const groomingServices = services.filter(
   (s) => s.category === "riccio" || s.category === "liscio" || s.category === "extra",
 )
 export const teethServices = services.filter((s) => s.category === "denti")
+export const catServices = services.filter((s) => s.category === "gatto")
 
 export function isSize(value: unknown): value is DogSize {
   return typeof value === "string" && sizes.some((s) => s.id === value)
+}
+
+/** Il gatto non ha taglia né pulizia denti; il cane richiede sempre una taglia. */
+export function isValidPetSize(list: CatalogService[], size: unknown): size is DogSize | null {
+  if (list.some((s) => s.category === "gatto")) return size === null && list.length === 1
+  return isSize(size)
 }
 
 export function summarize(list: CatalogService[]) {

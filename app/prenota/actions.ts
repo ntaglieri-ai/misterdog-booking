@@ -12,7 +12,7 @@ import {
   resolveServices,
 } from "@/lib/booking-db"
 import { BOOKING_DAYS_AHEAD } from "@/lib/config"
-import { isSize, summarize, type DogSize } from "@/lib/services"
+import { isValidPetSize, summarize, type DogSize } from "@/lib/services"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
 export async function getAvailableTimes(input: {
@@ -34,7 +34,7 @@ export async function getAvailableTimes(input: {
 export type CreateAppointmentInput = {
   date: string
   start: number
-  size: DogSize
+  size: DogSize | null
   serviceIds: string[]
   customerName: string
   phone: string
@@ -53,7 +53,7 @@ export async function createAppointment(
   const dogName = clean(input.dogName, 60)
   const phone = clean(input.phone, 30)
 
-  if (!list || !isSize(input.size) || !isDateWithin(input.date, BOOKING_DAYS_AHEAD)) {
+  if (!list || !isValidPetSize(list, input.size) || !isDateWithin(input.date, BOOKING_DAYS_AHEAD)) {
     return { ok: false, error: "Dati della prenotazione non validi." }
   }
   if (!isSlotStart(input.start)) return { ok: false, error: "Orario non valido." }

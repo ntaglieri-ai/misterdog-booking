@@ -1,6 +1,7 @@
 export type CustomerDetails = { customerName: string; phone: string; dogName: string }
 
 type DetailsStepProps = {
+  petLabel: string
   value: CustomerDetails
   onChange: (value: CustomerDetails) => void
   error?: string | null
@@ -20,7 +21,7 @@ const fields: {
   { key: "dogName", label: "Nome del cane", type: "text", autoComplete: "off", placeholder: "Come si chiama?" },
 ]
 
-export function DetailsStep({ value, onChange, error, onSubmit }: DetailsStepProps) {
+export function DetailsStep({ petLabel, value, onChange, error, onSubmit }: DetailsStepProps) {
   return (
     <section aria-labelledby="details-title">
       <h2 id="details-title" className="mb-1 font-display text-xl text-c-brown">
@@ -40,7 +41,7 @@ export function DetailsStep({ value, onChange, error, onSubmit }: DetailsStepPro
       >
         {fields.map((f) => (
           <label key={f.key} className="flex flex-col gap-1.5 text-sm font-medium text-c-brown">
-            {f.label}
+            {f.key === "dogName" ? `Nome del ${petLabel}` : f.label}
             <input
               name={f.key}
               type={f.type}

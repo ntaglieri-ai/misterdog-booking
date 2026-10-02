@@ -91,7 +91,7 @@ export async function availableStartsFor(date: string, durationMin: number, excl
 export type NewAppointment = {
   date: string
   start: number
-  size: DogSize
+  size: DogSize | null
   services: CatalogService[]
   customerName: string
   phone: string

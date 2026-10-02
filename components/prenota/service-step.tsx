@@ -1,6 +1,7 @@
 import { Check, Clock } from "lucide-react"
 import {
   categories,
+  catServices,
   formatDuration,
   formatPrice,
   getBath,
@@ -44,6 +45,26 @@ export function ServiceStep({ size, selectedId, onSelect }: ServiceStepProps) {
           onSelect={onSelect}
         />
       ))}
+    </section>
+  )
+}
+
+export function CatServiceStep({
+  selectedId,
+  onSelect,
+}: {
+  selectedId: string | null
+  onSelect: (id: string) => void
+}) {
+  return (
+    <section aria-labelledby="cat-service-title" className="flex flex-col gap-5">
+      <div>
+        <h2 id="cat-service-title" className="mb-1 font-display text-xl text-c-brown">
+          Che pelo ha il tuo gatto?
+        </h2>
+        <p className="text-sm leading-relaxed text-c-gray">Scegli il bagno adatto al suo mantello.</p>
+      </div>
+      <ServiceGroup title="Bagno gatto" items={catServices} selectedId={selectedId} onSelect={onSelect} />
     </section>
   )
 }

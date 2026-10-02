@@ -7,6 +7,7 @@ import { adminCreateAppointment, getAdminTimes } from "@/app/admin/actions"
 import { formatMinutes } from "@/lib/admin-format"
 import {
   categories,
+  catServices,
   formatDuration,
   getBath,
   groomingServices,
@@ -33,7 +34,8 @@ export function NewAppointmentView({
   notify: (message: string) => void
   onSaved: (date: string) => void
 }) {
-  const [size, setSize] = useState<DogSize>("M")
+  const [size, setSize] = useState<DogSize | "gatto">("M")
+  const isCat = size === "gatto"
   const [primaryId, setPrimaryId] = useState("")
   const [teethId, setTeethId] = useState("")
   const [date, setDate] = useState(initialDate)
@@ -45,10 +47,10 @@ export function NewAppointmentView({
   const [error, setError] = useState("")
 
   const primaryOptions = useMemo(
-    () => [getBath("corto", size), getBath("lungo", size), ...groomingServices],
+    () => (size === "gatto" ? catServices : [getBath("corto", size), getBath("lungo", size), ...groomingServices]),
     [size],
   )
-  const serviceIds = [primaryId, teethId].filter(Boolean)
+  const serviceIds = [primaryId, isCat ? "" : teethId].filter(Boolean)
   const selected = [...primaryOptions, ...teethServices].filter((s) => serviceIds.includes(s.id))
   const duration = selected.length ? summarize(selected).durationMin : 0
 
@@ -74,7 +76,7 @@ export function NewAppointmentView({
     const result = await adminCreateAppointment({
       date,
       start,
-      size,
+      size: isCat ? null : size,
       serviceIds,
       customerName,
       phone,
@@ -100,27 +102,29 @@ export function NewAppointmentView({
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <fieldset className="rounded-2xl border border-border bg-card p-4">
-          <legend className="sr-only">Cane e servizio</legend>
+          <legend className="sr-only">Animale e servizio</legend>
 
-          <span className={labelClass}>Taglia</span>
-          <div className="mb-4 grid grid-cols-5 gap-2" role="radiogroup" aria-label="Taglia">
-            {sizes.map((s) => (
+          <span className={labelClass}>Taglia cane o gatto</span>
+          <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6" role="radiogroup" aria-label="Taglia cane o gatto">
+            {[...sizes.map((s) => s.id), "gatto" as const].map((id) => (
               <button
-                key={s.id}
+                key={id}
                 type="button"
                 role="radio"
-                aria-checked={size === s.id}
+                aria-checked={size === id}
                 onClick={() => {
-                  setSize(s.id)
-                  if (primaryId.startsWith("bagno-")) setPrimaryId("")
+                  const switchingPet = (id === "gatto") !== isCat
+                  setSize(id)
+                  if (switchingPet || primaryId.startsWith("bagno-")) setPrimaryId("")
+                  if (id === "gatto") setTeethId("")
                   resetTime()
                 }}
                 className={cn(
                   "rounded-lg border py-2.5 text-sm font-semibold transition-colors",
-                  size === s.id ? "border-brown bg-brown text-cream" : "border-border text-brown hover:border-amber",
+                  size === id ? "border-brown bg-brown text-cream" : "border-border text-brown hover:border-amber",
                 )}
               >
-                {s.id}
+                {id === "gatto" ? "Gatto" : id}
               </button>
             ))}
           </div>
@@ -156,25 +160,29 @@ export function NewAppointmentView({
               })}
           </select>
 
-          <label htmlFor="teeth" className={labelClass}>
-            Pulizia denti (facoltativa)
-          </label>
-          <select
-            id="teeth"
-            value={teethId}
-            onChange={(e) => {
-              setTeethId(e.target.value)
-              resetTime()
-            }}
-            className={inputClass}
-          >
-            <option value="">Nessuna</option>
-            {teethServices.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} · {formatDuration(s.durationMin)}
-              </option>
-            ))}
-          </select>
+          {!isCat && (
+            <>
+              <label htmlFor="teeth" className={labelClass}>
+                Pulizia denti (facoltativa)
+              </label>
+              <select
+                id="teeth"
+                value={teethId}
+                onChange={(e) => {
+                  setTeethId(e.target.value)
+                  resetTime()
+                }}
+                className={inputClass}
+              >
+                <option value="">Nessuna</option>
+                {teethServices.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} · {formatDuration(s.durationMin)}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
           {duration > 0 && (
             <p className="mt-3 text-[13px] text-warm-gray">
@@ -213,7 +221,7 @@ export function NewAppointmentView({
           <legend className="sr-only">Cliente</legend>
           <div>
             <label htmlFor="dog" className={labelClass}>
-              Nome del cane
+              {isCat ? "Nome del gatto" : "Nome del cane"}
             </label>
             <input id="dog" required maxLength={60} value={dogName} onChange={(e) => setDogName(e.target.value)} className={inputClass} />
           </div>

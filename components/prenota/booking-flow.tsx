@@ -4,28 +4,42 @@ import { useCallback, useMemo, useRef, useState, useTransition } from "react"
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
 import { mutate } from "swr"
 import { createAppointment } from "@/app/prenota/actions"
-import { shop } from "@/lib/booking-data"
-import { getService, type CatalogService, type DogSize } from "@/lib/services"
+import { getService, type CatalogService, type DogSize, type Pet } from "@/lib/services"
 import { BookingHero } from "./booking-hero"
-import { HomeView } from "./home-view"
 import { CatalogView } from "./catalog-view"
+import { AnimalView } from "./animal-view"
 import { StepsIndicator } from "./steps-indicator"
 import { SizeStep } from "./size-step"
-import { ServiceStep } from "./service-step"
+import { CatServiceStep, ServiceStep } from "./service-step"
 import { TeethStep } from "./teeth-step"
 import { SummaryStep } from "./summary-step"
 import { DateStep } from "./date-step"
 import { DetailsStep, type CustomerDetails } from "./details-step"
 import { SuccessView, type ConfirmedAppointment } from "./success-view"
 
-type View = "home" | "catalog" | "booking" | "success"
-type Step = 1 | 2 | 3 | 4 | 5 | 6
+type View = "home" | "catalog" | "animal" | "booking" | "success"
+type StepId = "size" | "service" | "teeth" | "summary" | "date" | "details"
+
+const stepLabels: Record<StepId, string> = {
+  size: "Taglia",
+  service: "Servizio",
+  teeth: "Denti",
+  summary: "Riepilogo",
+  date: "Data e ora",
+  details: "I tuoi dati",
+}
+
+const stepsByPet: Record<Pet, StepId[]> = {
+  cane: ["size", "service", "teeth", "summary", "date", "details"],
+  gatto: ["service", "summary", "date", "details"],
+}
 
 const emptyDetails: CustomerDetails = { customerName: "", phone: "", dogName: "" }
 
 export function BookingFlow() {
   const [view, setView] = useState<View>("home")
-  const [step, setStep] = useState<Step>(1)
+  const [pet, setPet] = useState<Pet>("cane")
+  const [stepIndex, setStepIndex] = useState(0)
   const [size, setSize] = useState<DogSize | null>(null)
   const [primaryId, setPrimaryId] = useState<string | null>(null)
   const [teethId, setTeethId] = useState<string | null>(null)
@@ -45,7 +59,16 @@ export function BookingFlow() {
     timeoutRef.current = setTimeout(() => setToast((t) => ({ ...t, show: false })), 2500)
   }, [])
 
+  const steps = stepsByPet[pet]
+  const step = steps[stepIndex]
+  const isLastStep = step === "details"
+
   const scrollTop = () => window.scrollTo(0, 0)
+
+  const go = (next: View) => {
+    setView(next)
+    scrollTop()
+  }
 
   const resetBooking = useCallback(() => {
     setSize(null)
@@ -58,22 +81,21 @@ export function BookingFlow() {
     setFormError(null)
   }, [])
 
-  const startBooking = (preset?: CatalogService) => {
+  const startBooking = (nextPet: Pet, preset?: CatalogService) => {
     resetBooking()
-    if (preset?.size) {
-      setSize(preset.size)
-      setPrimaryId(preset.id)
-      setStep(2)
-    } else {
-      if (preset) setPrimaryId(preset.id)
-      setStep(1)
-    }
-    setView("booking")
-    scrollTop()
+    setPet(nextPet)
+    if (preset) setPrimaryId(preset.id)
+    if (preset?.size) setSize(preset.size)
+    const order = stepsByPet[nextPet]
+    setStepIndex(nextPet === "cane" && preset?.size ? order.indexOf("service") : 0)
+    go("booking")
   }
 
-  const goToStep = (next: Step) => {
-    setStep(next)
+  const bookFromCatalog = (service: CatalogService) =>
+    startBooking(service.category === "gatto" ? "gatto" : "cane", service)
+
+  const goToStep = (id: StepId) => {
+    setStepIndex(steps.indexOf(id))
     scrollTop()
   }
 
@@ -90,45 +112,45 @@ export function BookingFlow() {
 
   const selectedServices = useMemo(
     () =>
-      [primaryId, teethId]
+      [primaryId, pet === "cane" ? teethId : null]
         .map((id) => (id ? getService(id) : undefined))
         .filter((s): s is CatalogService => Boolean(s)),
-    [primaryId, teethId],
+    [primaryId, teethId, pet],
   )
   const serviceIds = selectedServices.map((s) => s.id)
+  const bookingSize = pet === "cane" ? size : null
 
   const canContinue =
-    (step === 1 && size !== null) ||
-    (step === 2 && primaryId !== null) ||
-    step === 3 ||
-    step === 4 ||
-    (step === 5 && date !== null && start !== null) ||
-    step === 6
+    (step === "size" && size !== null) ||
+    (step === "service" && primaryId !== null) ||
+    step === "teeth" ||
+    step === "summary" ||
+    (step === "date" && date !== null && start !== null) ||
+    step === "details"
 
   const submit = () => {
-    if (!size || !date || start === null) return
+    if ((pet === "cane" && !size) || !date || start === null) return
     setFormError(null)
     startSaving(async () => {
-      const result = await createAppointment({ date, start, size, serviceIds, ...details })
+      const result = await createAppointment({ date, start, size: bookingSize, serviceIds, ...details })
       if (result.ok) {
         setConfirmed({
-  date,
-  start,
-  size,
-  services: selectedServices,
-  ...details,
-  cancelToken: result.cancelToken,
-})
+          date,
+          start,
+          size: bookingSize,
+          services: selectedServices,
+          ...details,
+          cancelToken: result.cancelToken,
+        })
         mutate((key) => Array.isArray(key) && key[0] === "availability")
-        setView("success")
-        scrollTop()
+        go("success")
         return
       }
       if (result.slotTaken) {
         setStart(null)
         setSlotNotice(result.error)
         mutate(["availability", date, ...serviceIds])
-        goToStep(5)
+        goToStep("date")
         return
       }
       setFormError(result.error)
@@ -136,51 +158,32 @@ export function BookingFlow() {
   }
 
   const next = () => {
-    if (step === 6) return submit()
+    if (isLastStep) return submit()
     setSlotNotice(null)
-    goToStep((step + 1) as Step)
+    setStepIndex((i) => i + 1)
+    scrollTop()
   }
 
   const back = () => {
-    if (step === 1) {
-      setView("home")
-      scrollTop()
-      return
-    }
-    goToStep((step - 1) as Step)
+    if (stepIndex === 0) return go("animal")
+    setStepIndex((i) => i - 1)
+    scrollTop()
   }
 
   return (
     <div className="min-h-screen bg-c-bg text-c-brown">
-      {view === "home" && <BookingHero onStart={() => startBooking()} />}
+      {view === "home" && <BookingHero onStart={() => go("animal")} onCatalog={() => go("catalog")} />}
 
-      <main className="mx-auto max-w-[480px] px-4 pb-28">
-        {view === "home" && (
-          <HomeView
-            onBook={() => startBooking()}
-            onCatalog={() => {
-              setView("catalog")
-              scrollTop()
-            }}
-            onCall={() => showToast(`Chiama ${shop.phone}`)}
-          />
-        )}
+      <main className={view === "home" ? "hidden" : "mx-auto max-w-[480px] px-4 pb-28"}>
+        {view === "catalog" && <CatalogView onBack={() => go("home")} onBookService={bookFromCatalog} />}
 
-        {view === "catalog" && (
-          <CatalogView
-            onBack={() => {
-              setView("home")
-              scrollTop()
-            }}
-            onBookService={startBooking}
-          />
-        )}
+        {view === "animal" && <AnimalView onBack={() => go("home")} onSelect={(p) => startBooking(p)} />}
 
         {view === "booking" && (
           <>
-            <StepsIndicator current={step} />
-            {step === 1 && <SizeStep selected={size} onSelect={handleSize} />}
-            {step === 2 && size && (
+            <StepsIndicator labels={steps.map((id) => stepLabels[id])} current={stepIndex + 1} />
+            {step === "size" && <SizeStep selected={size} onSelect={handleSize} />}
+            {step === "service" && pet === "cane" && size && (
               <ServiceStep
                 size={size}
                 selectedId={primaryId}
@@ -190,7 +193,16 @@ export function BookingFlow() {
                 }}
               />
             )}
-            {step === 3 && (
+            {step === "service" && pet === "gatto" && (
+              <CatServiceStep
+                selectedId={primaryId}
+                onSelect={(id) => {
+                  setPrimaryId(id)
+                  setStart(null)
+                }}
+              />
+            )}
+            {step === "teeth" && (
               <TeethStep
                 selectedId={teethId}
                 onSelect={(id) => {
@@ -199,8 +211,8 @@ export function BookingFlow() {
                 }}
               />
             )}
-            {step === 4 && size && <SummaryStep size={size} services={selectedServices} />}
-            {step === 5 && (
+            {step === "summary" && <SummaryStep size={bookingSize} services={selectedServices} />}
+            {step === "date" && (
               <DateStep
                 serviceIds={serviceIds}
                 selectedDate={date}
@@ -217,8 +229,9 @@ export function BookingFlow() {
                 }}
               />
             )}
-            {step === 6 && (
+            {step === "details" && (
               <DetailsStep
+                petLabel={pet}
                 value={details}
                 onChange={setDetails}
                 error={formError}
@@ -234,8 +247,7 @@ export function BookingFlow() {
             onHome={() => {
               resetBooking()
               setConfirmed(null)
-              setView("home")
-              scrollTop()
+              go("home")
             }}
           />
         )}
@@ -252,9 +264,9 @@ export function BookingFlow() {
             <ArrowLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           <button
-            type={step === 6 ? "submit" : "button"}
-            form={step === 6 ? "details-form" : undefined}
-            onClick={step === 6 ? undefined : next}
+            type={isLastStep ? "submit" : "button"}
+            form={isLastStep ? "details-form" : undefined}
+            onClick={isLastStep ? undefined : next}
             disabled={!canContinue || isSaving}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-[14px] bg-c-amber py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#2e90c4] disabled:cursor-not-allowed disabled:bg-c-border disabled:text-c-gray"
           >
@@ -263,11 +275,11 @@ export function BookingFlow() {
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 Salvataggio...
               </>
-            ) : step === 6 ? (
+            ) : isLastStep ? (
               "Conferma prenotazione"
             ) : (
               <>
-                {step === 3 && !teethId ? "Salta" : "Continua"}
+                {step === "teeth" && !teethId ? "Salta" : "Continua"}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </>
             )}

@@ -74,7 +74,7 @@ function AppointmentDetails({
             text={`${formatMinutes(start)} – ${formatMinutes(end)} (${formatDuration(appointment.duration_min)})`}
             bold
           />
-          <Line icon={Dog} text={`${appointment.dog_name} · taglia ${appointment.size}`} />
+          <Line icon={Dog} text={appointment.size ? `${appointment.dog_name} · taglia ${appointment.size}` : appointment.dog_name} />
         </div>
         <ul className="pt-2">
           {appointment.services.map((s) => (

@@ -1,11 +1,9 @@
-export const bookingSteps = ["Taglia", "Servizio", "Denti", "Riepilogo", "Data e ora", "I tuoi dati"] as const
-
-export function StepsIndicator({ current }: { current: number }) {
-  const total = bookingSteps.length
+export function StepsIndicator({ labels, current }: { labels: readonly string[]; current: number }) {
+  const total = labels.length
   return (
     <div className="flex flex-col gap-2 pb-4 pt-5">
       <div className="flex items-baseline justify-between text-xs">
-        <span className="font-semibold text-c-brown">{bookingSteps[current - 1]}</span>
+        <span className="font-semibold text-c-brown">{labels[current - 1]}</span>
         <span className="text-c-gray">
           Passo {current} di {total}
         </span>
@@ -18,7 +16,7 @@ export function StepsIndicator({ current }: { current: number }) {
         aria-valuenow={current}
         aria-label="Avanzamento prenotazione"
       >
-        {bookingSteps.map((label, i) => (
+        {labels.map((label, i) => (
           <span
             key={label}
             className={[

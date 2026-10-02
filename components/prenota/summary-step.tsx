@@ -10,7 +10,7 @@ export const PRICE_NOTE =
   "I prezzi sono indicativi e possono variare in base al temperamento del cane e alle condizioni del pelo (nodi, muta, dermatiti)."
 
 type SummaryStepProps = {
-  size: DogSize
+  size: DogSize | null
   services: CatalogService[]
 }
 
@@ -22,7 +22,7 @@ export function SummaryStep({ size, services }: SummaryStepProps) {
         Riepilogo
       </h2>
       <div className="rounded-[18px] border border-c-border bg-white p-5">
-        <Row label="Taglia" value={size} />
+        {size ? <Row label="Taglia" value={size} /> : <Row label="Animale" value="Gatto" />}
         <ul className="border-b border-c-border py-1">
           {services.map((s) => (
             <li key={s.id} className="flex items-start justify-between gap-3 py-2 text-sm">

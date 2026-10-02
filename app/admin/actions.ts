@@ -14,7 +14,7 @@ import {
   isValidPhone,
   resolveServices,
 } from "@/lib/booking-db"
-import { isSize, summarize, type DogSize } from "@/lib/services"
+import { isValidPetSize, summarize, type DogSize } from "@/lib/services"
 import { addDays, shopTimeToUtc, utcToShopMinutes } from "@/lib/shop-time"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
@@ -193,7 +193,7 @@ export async function getAdminTimes(input: {
 export async function adminCreateAppointment(input: {
   date: string
   start: number
-  size: DogSize
+  size: DogSize | null
   serviceIds: string[]
   customerName: string
   phone: string
@@ -205,7 +205,7 @@ export async function adminCreateAppointment(input: {
   const dogName = clean(input.dogName, 60)
   const phone = clean(input.phone, 30)
 
-  if (!list || !isSize(input.size) || !isDateWithin(input.date, ADMIN_DAYS_AHEAD)) {
+  if (!list || !isValidPetSize(list, input.size) || !isDateWithin(input.date, ADMIN_DAYS_AHEAD)) {
     return { ok: false, error: "Controlla taglia, servizio e data." }
   }
   if (!isSlotStart(input.start)) return { ok: false, error: "Scegli un orario." }
