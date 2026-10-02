@@ -7,7 +7,6 @@ import { createAppointment } from "@/app/prenota/actions"
 import { shop } from "@/lib/booking-data"
 import { getService, type CatalogService, type DogSize } from "@/lib/services"
 import { BookingHero } from "./booking-hero"
-import { HomeView } from "./home-view"
 import { CatalogView } from "./catalog-view"
 import { StepsIndicator } from "./steps-indicator"
 import { SizeStep } from "./size-step"
@@ -152,20 +151,17 @@ export function BookingFlow() {
 
   return (
     <div className="min-h-screen bg-c-bg text-c-brown">
-      {view === "home" && <BookingHero onStart={() => startBooking()} />}
+      {view === "home" && (
+        <BookingHero
+          onStart={() => startBooking()}
+          onCatalog={() => {
+            setView("catalog")
+            scrollTop()
+          }}
+        />
+      )}
 
-      <main className="mx-auto max-w-[480px] px-4 pb-28">
-        {view === "home" && (
-          <HomeView
-            onBook={() => startBooking()}
-            onCatalog={() => {
-              setView("catalog")
-              scrollTop()
-            }}
-            onCall={() => showToast(`Chiama ${shop.phone}`)}
-          />
-        )}
-
+      <main className={view === "home" ? "hidden" : "mx-auto max-w-[480px] px-4 pb-28"}>
         {view === "catalog" && (
           <CatalogView
             onBack={() => {
