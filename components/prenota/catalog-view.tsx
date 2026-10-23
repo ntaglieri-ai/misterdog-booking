@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { ArrowLeft, Cat, Clock, Droplet, Scissors, Smile, Sparkles } from "lucide-react"
+import { ArrowLeft, Cat, ChevronRight, Clock, Droplet, Scissors, Smile, Sparkles } from "lucide-react"
 import {
   categories,
   formatDuration,
@@ -30,6 +30,9 @@ const categoryIcons: Record<ServiceCategoryId, typeof Droplet> = {
 export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
   const [active, setActive] = useState<ServiceCategoryId>(categories[0].id)
   const sectionRefs = useRef<Partial<Record<ServiceCategoryId, HTMLElement | null>>>({})
+  const tabsRef = useRef<HTMLDivElement | null>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -43,6 +46,25 @@ export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
     )
     Object.values(sectionRefs.current).forEach((el) => el && observer.observe(el))
     return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const el = tabsRef.current
+    if (!el) return
+
+    const updateFades = () => {
+      setCanScrollLeft(el.scrollLeft > 4)
+      setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4)
+    }
+
+    updateFades()
+    el.addEventListener("scroll", updateFades, { passive: true })
+    const resizeObserver = new ResizeObserver(updateFades)
+    resizeObserver.observe(el)
+    return () => {
+      el.removeEventListener("scroll", updateFades)
+      resizeObserver.disconnect()
+    }
   }, [])
 
   const scrollTo = (id: ServiceCategoryId) => {
@@ -67,32 +89,52 @@ export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
         Servizi e prezzi indicativi del salone.
       </p>
 
-      <div className="sticky top-0 z-10 -mx-4 mb-6 border-b border-c-border bg-c-bg/95 px-4 pb-3 pt-1 backdrop-blur-sm">
-        <div
-          role="tablist"
-          aria-label="Vai alla categoria"
-          className="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {categories.map((cat) => {
-            const isActive = active === cat.id
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => scrollTo(cat.id)}
-                className={[
-                  "flex-shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-[13.5px] font-semibold transition-colors",
-                  isActive
-                    ? "border-c-brown bg-c-brown text-white shadow-sm"
-                    : "border-c-border bg-c-amber-pale text-c-brown hover:border-c-amber",
-                ].join(" ")}
-              >
-                {cat.label}
-              </button>
-            )
-          })}
+      <div className="sticky top-0 z-10 -mx-4 mb-6 border-b border-c-border bg-c-bg/95 pb-3 pt-1 backdrop-blur-sm">
+        <div className="relative">
+          <div
+            ref={tabsRef}
+            role="tablist"
+            aria-label="Vai alla categoria"
+            className="flex gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {categories.map((cat) => {
+              const isActive = active === cat.id
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => scrollTo(cat.id)}
+                  className={[
+                    "flex-shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-[13.5px] font-semibold transition-colors",
+                    isActive
+                      ? "border-c-brown bg-c-brown text-white shadow-sm"
+                      : "border-c-border bg-c-amber-pale text-c-brown hover:border-c-amber",
+                  ].join(" ")}
+                >
+                  {cat.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div
+            aria-hidden="true"
+            className={[
+              "pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-c-bg to-transparent transition-opacity duration-200",
+              canScrollLeft ? "opacity-100" : "opacity-0",
+            ].join(" ")}
+          />
+          <div
+            aria-hidden="true"
+            className={[
+              "pointer-events-none absolute inset-y-0 right-0 flex w-12 items-center justify-end bg-gradient-to-l from-c-bg to-transparent pr-1 transition-opacity duration-200",
+              canScrollRight ? "opacity-100" : "opacity-0",
+            ].join(" ")}
+          >
+            <ChevronRight className="h-4 w-4 flex-shrink-0 text-c-amber" aria-hidden="true" />
+          </div>
         </div>
       </div>
 
