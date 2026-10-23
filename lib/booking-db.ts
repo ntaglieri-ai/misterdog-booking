@@ -2,7 +2,8 @@ import "server-only"
 import { randomBytes, randomUUID } from "node:crypto"
 import { getAvailableStarts, type BookedInterval } from "@/lib/availability"
 import { MAX_DOGS_PER_SLOT, SLOT_MINUTES } from "@/lib/config"
-import { getService, summarize, type CatalogService, type DogSize } from "@/lib/services"
+import { readCatalog } from "@/lib/catalog-db"
+import { summarize, type CatalogService, type DogSize } from "@/lib/services"
 import { addDays, shopNow, shopTimeToUtc, utcToShopMinutes } from "@/lib/shop-time"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
@@ -10,8 +11,10 @@ export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export type Interval = BookedInterval & { id: string }
 
-export function resolveServices(serviceIds: unknown): CatalogService[] | null {
+export async function resolveServices(serviceIds: unknown): Promise<CatalogService[] | null> {
   if (!Array.isArray(serviceIds) || serviceIds.length === 0 || serviceIds.length > 3) return null
+  const catalog = await readCatalog()
+  const getService = (id: string) => catalog.find(s => s.id === id)
   const list = serviceIds.map((id) => (typeof id === "string" ? getService(id) : undefined))
   if (list.some((s) => !s)) return null
   const resolved = list as CatalogService[]

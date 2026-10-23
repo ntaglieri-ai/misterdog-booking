@@ -7,6 +7,7 @@ import { AppHeader } from "@/components/app-header"
 import { NavTabs, type Section } from "@/components/nav-tabs"
 import { Toast } from "@/components/toast"
 import { AgendaView } from "./agenda-view"
+import { CatalogEditor } from "./catalog-editor"
 import { ClientsView } from "./clients-view"
 import { ClosuresView } from "./closures-view"
 import { NewAppointmentView } from "./new-appointment-view"
@@ -57,6 +58,7 @@ export function AdminApp({ today }: { today: string }) {
         )}
         {section === "chiusure" && <ClosuresView today={today} notify={notify} />}
         {section === "clienti" && <ClientsView />}
+        {section === "catalogo" && <CatalogEditor />}
       </main>
 
       {section === "agenda" && (
