@@ -60,18 +60,18 @@ export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
         Indietro
       </button>
 
-      <h1 className="font-display text-[26px] leading-tight text-c-brown text-balance">
+      <h1 className="font-display text-[30px] leading-tight tracking-tight text-c-brown text-balance">
         Il nostro catalogo
       </h1>
-      <p className="mb-4 mt-1 text-sm leading-relaxed text-c-gray">
+      <p className="mb-4 mt-1.5 text-[15px] leading-relaxed text-c-gray">
         Servizi e prezzi indicativi del salone.
       </p>
 
-      <div className="sticky top-0 z-10 -mx-4 mb-5 border-b border-c-border bg-c-bg/95 px-4 pb-2 pt-1 backdrop-blur-sm">
+      <div className="sticky top-0 z-10 -mx-4 mb-6 border-b border-c-border bg-c-bg/95 px-4 pb-3 pt-1 backdrop-blur-sm">
         <div
           role="tablist"
           aria-label="Vai alla categoria"
-          className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]"
+          className="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {categories.map((cat) => {
             const isActive = active === cat.id
@@ -83,10 +83,10 @@ export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
                 aria-selected={isActive}
                 onClick={() => scrollTo(cat.id)}
                 className={[
-                  "flex-shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors",
+                  "flex-shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-[13.5px] font-semibold transition-colors",
                   isActive
-                    ? "border-c-brown bg-c-brown text-white"
-                    : "border-c-border bg-white text-c-brown hover:border-c-amber",
+                    ? "border-c-brown bg-c-brown text-white shadow-sm"
+                    : "border-c-border bg-c-amber-pale text-c-brown hover:border-c-amber",
                 ].join(" ")}
               >
                 {cat.label}
@@ -112,50 +112,54 @@ export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
               className="scroll-mt-20"
               aria-label={cat.label}
             >
-              <div className="mb-3 flex items-center gap-2.5">
-                <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-c-amber-pale text-c-brown">
+              <div className="mb-3.5 flex items-center gap-3">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-c-amber-pale text-c-brown">
                   <Icon className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div>
-                  <h2 className="text-sm font-semibold text-c-brown">{cat.label}</h2>
+                  <h2 className="font-display text-[15px] font-semibold text-c-brown">{cat.label}</h2>
                   {cat.note && <p className="text-xs text-c-gray">{cat.note}</p>}
                 </div>
               </div>
 
               {sized ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {items.map((s) => (
-                    <div
-                      key={s.id}
-                      className="flex flex-col items-center gap-1.5 rounded-[14px] border border-c-border bg-white p-2.5 text-center"
-                    >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-c-amber-pale font-display text-sm text-c-brown">
-                        {s.size}
-                      </span>
-                      <p className="truncate text-[11px] text-c-gray">{s.exampleBreed}</p>
-                      <p className="text-[13px] font-semibold text-c-brown">
-                        {formatPrice(s.priceFrom, s.isFrom)}
-                      </p>
-                      <p className="flex items-center gap-1 text-[10px] text-c-gray">
-                        <Clock className="h-2.5 w-2.5" aria-hidden="true" />
-                        {formatDuration(s.durationMin)}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => onBookService(s)}
-                        className="mt-0.5 w-full rounded-full bg-c-amber px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-[#2e90c4]"
-                      >
-                        Prenota
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col gap-2.5">
                   {items.map((s) => (
                     <li
                       key={s.id}
-                      className="flex items-center gap-3 rounded-[14px] border border-c-border bg-white p-3.5"
+                      className="flex items-center gap-4 rounded-[18px] border border-c-border bg-white p-4 shadow-[0_1px_2px_rgba(26,46,90,0.04),0_8px_20px_-16px_rgba(26,46,90,0.2)]"
+                    >
+                      <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-c-amber-pale font-display text-base font-semibold text-c-brown">
+                        {s.size}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-c-brown">Taglia {s.size}</p>
+                        <p className="mt-0.5 flex items-center gap-1 text-xs text-c-gray">
+                          <Clock className="h-3 w-3" aria-hidden="true" />
+                          {formatDuration(s.durationMin)}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className="text-sm font-semibold text-c-brown">
+                          {formatPrice(s.priceFrom, s.isFrom)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onBookService(s)}
+                          className="rounded-full bg-c-amber px-3.5 py-1.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#2e90c4]"
+                        >
+                          Prenota
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="flex flex-col gap-2.5">
+                  {items.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex items-center gap-3 rounded-[18px] border border-c-border bg-white p-4 shadow-[0_1px_2px_rgba(26,46,90,0.04),0_8px_20px_-16px_rgba(26,46,90,0.2)]"
                     >
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold text-c-brown">{s.name}</p>
@@ -172,7 +176,7 @@ export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
                           <button
                             type="button"
                             onClick={() => onBookService(s)}
-                            className="rounded-full bg-c-amber px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#2e90c4]"
+                            className="rounded-full bg-c-amber px-3.5 py-1.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#2e90c4]"
                           >
                             Prenota
                           </button>
