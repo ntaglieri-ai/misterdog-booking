@@ -1,12 +1,13 @@
 "use client"
 
+import { useCatalog } from "@/components/catalog-provider"
+
 import { useEffect, useRef, useState } from "react"
 import { ArrowLeft, Cat, Clock, Droplet, Scissors, Smile, Sparkles } from "lucide-react"
 import {
   categories,
   formatDuration,
   formatPrice,
-  services,
   type CatalogService,
   type ServiceCategoryId,
 } from "@/lib/services"
@@ -28,6 +29,7 @@ const categoryIcons: Record<ServiceCategoryId, typeof Droplet> = {
 }
 
 export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
+  const { services } = useCatalog()
   const [active, setActive] = useState<ServiceCategoryId>(categories[0].id)
   const sectionRefs = useRef<Partial<Record<ServiceCategoryId, HTMLElement | null>>>({})
 

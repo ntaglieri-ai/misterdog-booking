@@ -19,11 +19,11 @@ export async function getAvailableTimes(input: {
   date: string
   serviceIds: string[]
 }): Promise<{ ok: true; starts: number[] } | { ok: false; error: string }> {
-  const list = resolveServices(input.serviceIds)
-  if (!list || !isDateWithin(input.date, BOOKING_DAYS_AHEAD)) {
-    return { ok: false, error: "Richiesta non valida" }
-  }
   try {
+    const list = await resolveServices(input.serviceIds)
+    if (!list || !isDateWithin(input.date, BOOKING_DAYS_AHEAD)) {
+      return { ok: false, error: "Richiesta non valida" }
+    }
     return { ok: true, starts: await availableStartsFor(input.date, summarize(list).durationMin) }
   } catch (error) {
     console.error("[prenota] Errore lettura disponibilità:", error)
@@ -48,21 +48,21 @@ export type CreateAppointmentResult =
 export async function createAppointment(
   input: CreateAppointmentInput,
 ): Promise<CreateAppointmentResult> {
-  const list = resolveServices(input.serviceIds)
-  const customerName = clean(input.customerName, 80)
-  const dogName = clean(input.dogName, 60)
-  const phone = clean(input.phone, 30)
-
-  if (!list || !isValidPetSize(list, input.size) || !isDateWithin(input.date, BOOKING_DAYS_AHEAD)) {
-    return { ok: false, error: "Dati della prenotazione non validi." }
-  }
-  if (!isSlotStart(input.start)) return { ok: false, error: "Orario non valido." }
-  if (customerName.length < 2 || dogName.length < 1) {
-    return { ok: false, error: "Inserisci il tuo nome e il nome del cane." }
-  }
-  if (!isValidPhone(phone)) return { ok: false, error: "Inserisci un numero di telefono valido." }
-
   try {
+    const list = await resolveServices(input.serviceIds)
+    const customerName = clean(input.customerName, 80)
+    const dogName = clean(input.dogName, 60)
+    const phone = clean(input.phone, 30)
+
+    if (!list || !isValidPetSize(list, input.size) || !isDateWithin(input.date, BOOKING_DAYS_AHEAD)) {
+      return { ok: false, error: "Dati della prenotazione non validi." }
+    }
+    if (!isSlotStart(input.start)) return { ok: false, error: "Orario non valido." }
+    if (customerName.length < 2 || dogName.length < 1) {
+      return { ok: false, error: "Inserisci il tuo nome e il nome del cane." }
+    }
+    if (!isValidPhone(phone)) return { ok: false, error: "Inserisci un numero di telefono valido." }
+
     const result = await insertAppointment({
       date: input.date,
       start: input.start,

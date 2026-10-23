@@ -180,7 +180,7 @@ export async function getAdminTimes(input: {
       if (error) throw new Error(error.message)
       durationMin = data.duration_min
     } else {
-      const list = resolveServices(input.serviceIds)
+      const list = await resolveServices(input.serviceIds)
       if (!list) return { ok: false, error: "Scegli un servizio." }
       durationMin = summarize(list).durationMin
     }
@@ -200,21 +200,21 @@ export async function adminCreateAppointment(input: {
   dogName: string
 }): Promise<Result> {
   await requireAdmin()
-  const list = resolveServices(input.serviceIds)
-  const customerName = clean(input.customerName, 80)
-  const dogName = clean(input.dogName, 60)
-  const phone = clean(input.phone, 30)
-
-  if (!list || !isValidPetSize(list, input.size) || !isDateWithin(input.date, ADMIN_DAYS_AHEAD)) {
-    return { ok: false, error: "Controlla taglia, servizio e data." }
-  }
-  if (!isSlotStart(input.start)) return { ok: false, error: "Scegli un orario." }
-  if (customerName.length < 2 || dogName.length < 1) {
-    return { ok: false, error: "Inserisci nome del cliente e del cane." }
-  }
-  if (!isValidPhone(phone)) return { ok: false, error: "Numero di telefono non valido." }
-
   try {
+    const list = await resolveServices(input.serviceIds)
+    const customerName = clean(input.customerName, 80)
+    const dogName = clean(input.dogName, 60)
+    const phone = clean(input.phone, 30)
+
+    if (!list || !isValidPetSize(list, input.size) || !isDateWithin(input.date, ADMIN_DAYS_AHEAD)) {
+      return { ok: false, error: "Controlla taglia, servizio e data." }
+    }
+    if (!isSlotStart(input.start)) return { ok: false, error: "Scegli un orario." }
+    if (customerName.length < 2 || dogName.length < 1) {
+      return { ok: false, error: "Inserisci nome del cliente e del cane." }
+    }
+    if (!isValidPhone(phone)) return { ok: false, error: "Numero di telefono non valido." }
+
     const result = await insertAppointment({
       date: input.date,
       start: input.start,
@@ -508,5 +508,33 @@ export async function listClients(): Promise<Result<{ clients: AdminClient[] }>>
     return { ok: true, clients }
   } catch (error) {
     return fail("clienti", error, "Impossibile caricare i clienti.")
+  }
+}
+
+// --- catalogo ---------------------------------------------------------------
+export async function saveCatalogService(input: import("@/lib/services").CatalogService): Promise<Result> {
+  await requireAdmin()
+  const { services } = await import("@/lib/services")
+  const name = typeof input.name === "string" ? input.name.trim() : ""
+  if (!services.some(s => s.id === input.id) || !name || name.length > 120 ||
+      !Number.isFinite(input.priceFrom) || input.priceFrom < 0 || input.priceFrom > 9999 ||
+      !Number.isInteger(input.durationMin) || input.durationMin < 5 || input.durationMin > 480 ||
+      typeof input.isFrom !== "boolean") {
+    return { ok: false, error: "Controlla nome, prezzo (0–9999 €) e durata (5–480 minuti)." }
+  }
+  try {
+    const { error } = await supabaseAdmin().from("catalog_services").upsert({
+      id: input.id, name, price_from: Math.round(input.priceFrom * 100) / 100,
+      duration_min: input.durationMin, is_from: input.isFrom,
+    })
+    if (error) return { ok: false, error: error.code === "PGRST205" || error.code === "42P01"
+      ? "Per attivare il catalogo esegui prima lo script 004 nel database."
+      : "Catalogo non salvato. Riprova." }
+    const { revalidatePath } = await import("next/cache")
+    revalidatePath("/prenota")
+    revalidatePath("/admin")
+    return { ok: true }
+  } catch (error) {
+    return fail("catalogo", error, "Catalogo non salvato. Riprova.")
   }
 }

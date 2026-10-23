@@ -1,5 +1,7 @@
 "use client"
 
+import { useCatalog } from "@/components/catalog-provider"
+
 import type React from "react"
 import { useMemo, useState } from "react"
 import useSWR from "swr"
@@ -7,13 +9,9 @@ import { adminCreateAppointment, getAdminTimes } from "@/app/admin/actions"
 import { formatMinutes } from "@/lib/admin-format"
 import {
   categories,
-  catServices,
   formatDuration,
-  getBath,
-  groomingServices,
   sizes,
   summarize,
-  teethServices,
   type DogSize,
 } from "@/lib/services"
 import { cn } from "@/lib/utils"
@@ -34,6 +32,7 @@ export function NewAppointmentView({
   notify: (message: string) => void
   onSaved: (date: string) => void
 }) {
+  const { catServices, getBath, groomingServices, teethServices } = useCatalog()
   const [size, setSize] = useState<DogSize | "gatto">("M")
   const isCat = size === "gatto"
   const [primaryId, setPrimaryId] = useState("")
@@ -48,7 +47,7 @@ export function NewAppointmentView({
 
   const primaryOptions = useMemo(
     () => (size === "gatto" ? catServices : [getBath("corto", size), getBath("lungo", size), ...groomingServices]),
-    [size],
+    [size, catServices, getBath, groomingServices],
   )
   const serviceIds = [primaryId, isCat ? "" : teethId].filter(Boolean)
   const selected = [...primaryOptions, ...teethServices].filter((s) => serviceIds.includes(s.id))
