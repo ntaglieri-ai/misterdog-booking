@@ -6,10 +6,10 @@ import {
   categories,
   formatDuration,
   formatPrice,
-  services,
   type CatalogService,
   type ServiceCategoryId,
 } from "@/lib/services"
+import { useCatalog } from "@/components/catalog-provider"
 import { PRICE_NOTE } from "./summary-step"
 
 type CatalogViewProps = {
@@ -28,6 +28,7 @@ const categoryIcons: Record<ServiceCategoryId, typeof Droplet> = {
 }
 
 export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
+  const { services } = useCatalog()
   const [active, setActive] = useState<ServiceCategoryId>(categories[0].id)
   const sectionRefs = useRef<Partial<Record<ServiceCategoryId, HTMLElement | null>>>({})
   const tabsRef = useRef<HTMLDivElement | null>(null)
@@ -97,7 +98,7 @@ export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
             aria-label="Vai alla categoria"
             className="flex gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {categories.map((cat) => {
+            {categories.filter((cat) => services.some((s) => s.category === cat.id)).map((cat) => {
               const isActive = active === cat.id
               return (
                 <button
@@ -139,7 +140,7 @@ export function CatalogView({ onBack, onBookService }: CatalogViewProps) {
       </div>
 
       <div className="flex flex-col gap-7">
-        {categories.map((cat) => {
+        {categories.filter((cat) => services.some((s) => s.category === cat.id)).map((cat) => {
           const Icon = categoryIcons[cat.id]
           const items = services.filter((s) => s.category === cat.id)
           const sized = items.every((s) => s.size)

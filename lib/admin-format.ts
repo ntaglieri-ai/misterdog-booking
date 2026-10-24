@@ -55,3 +55,17 @@ export function formatShortDate(date: string) {
 }
 
 export { formatMinutes }
+
+/** Primo giorno del mese che contiene la data, spostato di `delta` mesi. */
+export function monthStart(date: string, delta = 0) {
+  const [y, m] = date.split("-").map(Number)
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1))
+  return d.toISOString().slice(0, 10)
+}
+
+const monthLabel = new Intl.DateTimeFormat("it-IT", { month: "long", year: "numeric", timeZone: "UTC" })
+
+export function formatMonth(date: string) {
+  const [y, m] = date.split("-").map(Number)
+  return monthLabel.format(new Date(Date.UTC(y, m - 1, 1)))
+}

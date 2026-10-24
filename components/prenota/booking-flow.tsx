@@ -4,7 +4,8 @@ import { useCallback, useMemo, useRef, useState, useTransition } from "react"
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react"
 import { mutate } from "swr"
 import { createAppointment } from "@/app/prenota/actions"
-import { getService, type CatalogService, type DogSize, type Pet } from "@/lib/services"
+import { useCatalog } from "@/components/catalog-provider"
+import { type CatalogService, type DogSize, type Pet } from "@/lib/services"
 import { BookingHero } from "./booking-hero"
 import { CatalogView } from "./catalog-view"
 import { AnimalView } from "./animal-view"
@@ -37,6 +38,7 @@ const stepsByPet: Record<Pet, StepId[]> = {
 const emptyDetails: CustomerDetails = { customerName: "", phone: "", dogName: "" }
 
 export function BookingFlow() {
+  const { getService } = useCatalog()
   const [view, setView] = useState<View>("home")
   const [pet, setPet] = useState<Pet>("cane")
   const [stepIndex, setStepIndex] = useState(0)
@@ -115,7 +117,7 @@ export function BookingFlow() {
       [primaryId, pet === "cane" ? teethId : null]
         .map((id) => (id ? getService(id) : undefined))
         .filter((s): s is CatalogService => Boolean(s)),
-    [primaryId, teethId, pet],
+    [primaryId, teethId, pet, getService],
   )
   const serviceIds = selectedServices.map((s) => s.id)
   const bookingSize = pet === "cane" ? size : null

@@ -5,14 +5,14 @@ import useSWR from "swr"
 import { ChevronLeft, ChevronRight, Lock, MoveRight, Phone, X } from "lucide-react"
 import { getAgenda, cancelAppointmentById, type AdminAppointment, type AgendaDay } from "@/app/admin/actions"
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { daySlots, formatMinutes, formatShortDate, weekStart } from "@/lib/admin-format"
+import { daySlots, formatMinutes, formatMonth, formatShortDate, monthStart, weekStart } from "@/lib/admin-format"
 import { MAX_DOGS_PER_SLOT, SLOT_MINUTES } from "@/lib/config"
 import { formatDuration } from "@/lib/services"
 import { addDays, formatLongDate } from "@/lib/shop-time"
 import { cn } from "@/lib/utils"
 import { MoveDialog } from "./move-dialog"
 
-type View = "giorno" | "settimana"
+type View = "giorno" | "settimana" | "mese"
 
 async function fetchAgenda([, from, days]: [string, string, number]) {
   const result = await getAgenda({ from, days })
@@ -45,8 +45,8 @@ export function AgendaView({
   notify: (message: string) => void
 }) {
   const [view, setView] = useState<View>("giorno")
-  const from = view === "giorno" ? date : weekStart(date)
-  const days = view === "giorno" ? 1 : 6
+  const from = view === "giorno" ? date : view === "settimana" ? weekStart(date) : weekStart(monthStart(date))
+  const days = view === "giorno" ? 1 : view === "settimana" ? 6 : 42
   const { data, error, isLoading, mutate } = useAgenda(from, days)
   const [moving, setMoving] = useState<AdminAppointment | null>(null)
   const [cancelling, setCancelling] = useState<AdminAppointment | null>(null)
@@ -55,7 +55,10 @@ export function AgendaView({
   const label =
     view === "giorno"
       ? formatLongDate(date)
-      : `${formatShortDate(from)} – ${formatShortDate(addDays(from, 5))}`
+      : view === "mese"
+        ? formatMonth(date)
+        : `${formatShortDate(from)} – ${formatShortDate(addDays(from, 5))}`
+  const shift = (direction: 1 | -1) => onDateChange(view === "mese" ? monthStart(date, direction) : addDays(date, step * direction))
 
   async function confirmCancel() {
     if (!cancelling) return
@@ -70,7 +73,7 @@ export function AgendaView({
     <section className="mx-auto max-w-[680px] px-4 py-5">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex rounded-full border border-border bg-card p-1" role="group" aria-label="Vista">
-          {(["giorno", "settimana"] as const).map((v) => (
+          {(["giorno", "settimana", "mese"] as const).map((v) => (
             <button
               key={v}
               type="button"
@@ -99,7 +102,7 @@ export function AgendaView({
       <div className="mb-5 flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={() => onDateChange(addDays(date, -step))}
+          onClick={() => shift(-1)}
           aria-label="Periodo precedente"
           className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-brown"
         >
@@ -117,7 +120,7 @@ export function AgendaView({
         </label>
         <button
           type="button"
-          onClick={() => onDateChange(addDays(date, step))}
+          onClick={() => shift(1)}
           aria-label="Periodo successivo"
           className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-brown"
         >
@@ -138,6 +141,18 @@ export function AgendaView({
       {data && view === "settimana" && (
         <WeekList
           days={data}
+          today={today}
+          onOpenDay={(d) => {
+            onDateChange(d)
+            setView("giorno")
+          }}
+        />
+      )}
+
+      {data && view === "mese" && (
+        <MonthGrid
+          days={data}
+          month={monthStart(date)}
           today={today}
           onOpenDay={(d) => {
             onDateChange(d)
@@ -395,5 +410,74 @@ function WeekList({
         )
       })}
     </ul>
+  )
+}
+
+const weekdayHeads = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]
+
+function MonthGrid({
+  days,
+  month,
+  today,
+  onOpenDay,
+}: {
+  days: AgendaDay[]
+  month: string
+  today: string
+  onOpenDay: (date: string) => void
+}) {
+  const monthPrefix = month.slice(0, 7)
+  // Le righe sono lunedì–domenica: si tolgono quelle che non contengono giorni del mese.
+  const weeks = Array.from({ length: 6 }, (_, i) => days.slice(i * 7, i * 7 + 7)).filter((w) =>
+    w.some((d) => d.date.startsWith(monthPrefix)),
+  )
+  const total = days
+    .filter((d) => d.date.startsWith(monthPrefix))
+    .reduce((sum, d) => sum + d.appointments.length, 0)
+
+  return (
+    <div>
+      <p className="mb-3 text-[13px] text-warm-gray">
+        {total === 0 ? "Nessun appuntamento." : `${total} ${total === 1 ? "appuntamento" : "appuntamenti"} nel mese`}
+      </p>
+      <div className="grid grid-cols-7 gap-1 text-center">
+        {weekdayHeads.map((h) => (
+          <span key={h} className="pb-1 text-[11px] font-semibold uppercase tracking-wider text-warm-gray">
+            {h}
+          </span>
+        ))}
+        {weeks.flat().map((day) => {
+          const inMonth = day.date.startsWith(monthPrefix)
+          const slots = daySlots(day.date)
+          const closed = slots.length === 0 || slots.every((s) => slotUsage(day, s).blocked)
+          const count = day.appointments.length
+          return (
+            <button
+              key={day.date}
+              type="button"
+              onClick={() => onOpenDay(day.date)}
+              aria-label={`${formatShortDate(day.date)}: ${closed ? "chiuso" : `${count} appuntamenti`}`}
+              className={cn(
+                "flex aspect-square flex-col items-center justify-center rounded-xl border text-[13px] transition-colors hover:border-amber",
+                day.date === today ? "border-amber" : "border-border",
+                closed ? "bg-border/40 text-warm-gray" : "bg-card text-brown",
+                !inMonth && "opacity-40",
+              )}
+            >
+              <span className="font-semibold tabular-nums">{Number(day.date.slice(8))}</span>
+              {closed ? (
+                <Lock className="h-3 w-3 text-warm-gray" aria-hidden="true" />
+              ) : count > 0 ? (
+                <span className="mt-0.5 rounded-full bg-amber px-1.5 text-[11px] font-semibold tabular-nums text-primary-foreground">
+                  {count}
+                </span>
+              ) : (
+                <span className="mt-0.5 h-4" aria-hidden="true" />
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }

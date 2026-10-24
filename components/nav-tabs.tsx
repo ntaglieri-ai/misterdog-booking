@@ -1,15 +1,16 @@
 "use client"
 
-import { Calendar, CalendarX, Plus, Users } from "lucide-react"
+import { Calendar, CalendarX, ListChecks, Plus, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type Section = "agenda" | "nuovo" | "chiusure" | "clienti"
+export type Section = "agenda" | "nuovo" | "chiusure" | "clienti" | "catalogo"
 
 const tabs: { id: Section; label: string; icon: typeof Calendar }[] = [
   { id: "agenda", label: "Agenda", icon: Calendar },
   { id: "nuovo", label: "Nuovo", icon: Plus },
   { id: "chiusure", label: "Chiusure", icon: CalendarX },
   { id: "clienti", label: "Clienti", icon: Users },
+  { id: "catalogo", label: "Catalogo", icon: ListChecks },
 ]
 
 export function NavTabs({

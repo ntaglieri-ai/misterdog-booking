@@ -1,6 +1,7 @@
 "use server"
 
 import { randomUUID } from "node:crypto"
+import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { requireAdmin, signIn, signOut } from "@/lib/admin-auth"
 import {
@@ -14,7 +15,8 @@ import {
   isValidPhone,
   resolveServices,
 } from "@/lib/booking-db"
-import { isValidPetSize, summarize, type DogSize } from "@/lib/services"
+import { loadCatalogItems, type CatalogItem } from "@/lib/catalog"
+import { canHide, defaultServices, isValidPetSize, summarize, type DogSize } from "@/lib/services"
 import { addDays, shopTimeToUtc, utcToShopMinutes } from "@/lib/shop-time"
 import { supabaseAdmin } from "@/lib/supabase/admin"
 
@@ -110,7 +112,7 @@ function toAdminAppointment(row: AppointmentRow, date: string): AdminAppointment
 
 export async function getAgenda(input: { from: string; days: number }): Promise<Result<{ days: AgendaDay[] }>> {
   await requireAdmin()
-  if (!DATE_RE.test(input.from) || input.days < 1 || input.days > 7) {
+  if (!DATE_RE.test(input.from) || input.days < 1 || input.days > 42) {
     return { ok: false, error: "Intervallo non valido." }
   }
   const dates = Array.from({ length: input.days }, (_, i) => addDays(input.from, i))
@@ -180,7 +182,7 @@ export async function getAdminTimes(input: {
       if (error) throw new Error(error.message)
       durationMin = data.duration_min
     } else {
-      const list = resolveServices(input.serviceIds)
+      const list = await resolveServices(input.serviceIds)
       if (!list) return { ok: false, error: "Scegli un servizio." }
       durationMin = summarize(list).durationMin
     }
@@ -200,7 +202,7 @@ export async function adminCreateAppointment(input: {
   dogName: string
 }): Promise<Result> {
   await requireAdmin()
-  const list = resolveServices(input.serviceIds)
+  const list = await resolveServices(input.serviceIds)
   const customerName = clean(input.customerName, 80)
   const dogName = clean(input.dogName, 60)
   const phone = clean(input.phone, 30)
@@ -508,5 +510,64 @@ export async function listClients(): Promise<Result<{ clients: AdminClient[] }>>
     return { ok: true, clients }
   } catch (error) {
     return fail("clienti", error, "Impossibile caricare i clienti.")
+  }
+}
+
+// --- catalogo ----------------------------------------------------------------
+
+export async function getCatalogItems(): Promise<Result<{ items: CatalogItem[] }>> {
+  await requireAdmin()
+  try {
+    return { ok: true, items: await loadCatalogItems() }
+  } catch (error) {
+    return fail("catalogo", error, "Impossibile caricare il catalogo.")
+  }
+}
+
+export async function saveCatalogItem(input: {
+  id: string
+  priceFrom: number
+  isFrom: boolean
+  durationMin: number
+  active: boolean
+}): Promise<Result> {
+  await requireAdmin()
+  const base = defaultServices.find((s) => s.id === input.id)
+  if (!base) return { ok: false, error: "Servizio non trovato." }
+  const price = Math.round(Number(input.priceFrom) * 100) / 100
+  const duration = Math.round(Number(input.durationMin))
+  if (!Number.isFinite(price) || price < 0 || price > 1000) return { ok: false, error: "Prezzo non valido." }
+  if (!Number.isFinite(duration) || duration < 10 || duration > 480) {
+    return { ok: false, error: "La durata deve essere tra 10 minuti e 8 ore." }
+  }
+  if (!input.active && !canHide(base)) return { ok: false, error: "I bagni non si possono nascondere." }
+  try {
+    const { error } = await supabaseAdmin()
+      .from("catalog_overrides")
+      .upsert({
+        service_id: base.id,
+        price_from: price,
+        is_from: Boolean(input.isFrom),
+        duration_min: duration,
+        active: Boolean(input.active),
+        updated_at: new Date().toISOString(),
+      })
+    if (error) throw new Error(error.message)
+    revalidatePath("/prenota")
+    return { ok: true }
+  } catch (error) {
+    return fail("salva catalogo", error, "Salvataggio non riuscito. Il database ha la tabella catalog_overrides?")
+  }
+}
+
+export async function resetCatalogItem(id: string): Promise<Result> {
+  await requireAdmin()
+  try {
+    const { error } = await supabaseAdmin().from("catalog_overrides").delete().eq("service_id", id)
+    if (error) throw new Error(error.message)
+    revalidatePath("/prenota")
+    return { ok: true }
+  } catch (error) {
+    return fail("ripristina catalogo", error, "Ripristino non riuscito.")
   }
 }

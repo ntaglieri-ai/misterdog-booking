@@ -1,5 +1,5 @@
 import { Check } from "lucide-react"
-import { teethServices } from "@/lib/services"
+import { useCatalog } from "@/components/catalog-provider"
 import { ServiceOption } from "./service-step"
 
 type TeethStepProps = {
@@ -8,6 +8,7 @@ type TeethStepProps = {
 }
 
 export function TeethStep({ selectedId, onSelect }: TeethStepProps) {
+  const { teethServices } = useCatalog()
   return (
     <section aria-labelledby="teeth-title">
       <h2 id="teeth-title" className="mb-1 font-display text-xl text-c-brown">

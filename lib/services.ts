@@ -43,7 +43,7 @@ export const categories: { id: ServiceCategoryId; label: string; note?: string }
   { id: "denti", label: "Pulizia denti a ultrasuoni" },
 ]
 
-export const services: CatalogService[] = [
+export const defaultServices: CatalogService[] = [
   { id: "bagno-corto-xs", name: "Bagno pelo corto XS", category: "bagno-corto", size: "XS", exampleBreed: "Chihuahua", priceFrom: 18, isFrom: true, durationMin: 30 },
   { id: "bagno-corto-s", name: "Bagno pelo corto S", category: "bagno-corto", size: "S", exampleBreed: "Jack Russell", priceFrom: 20, isFrom: true, durationMin: 45 },
   { id: "bagno-corto-m", name: "Bagno pelo corto M", category: "bagno-corto", size: "M", exampleBreed: "Bulldog Francese", priceFrom: 25, isFrom: true, durationMin: 60 },
@@ -75,21 +75,32 @@ export const services: CatalogService[] = [
   { id: "denti-profonda", name: "Pulizia denti profonda", category: "denti", size: null, exampleBreed: "", priceFrom: 40, isFrom: false, durationMin: 30 },
 ]
 
-const byId = new Map(services.map((s) => [s.id, s]))
-
-export function getService(id: string): CatalogService | undefined {
-  return byId.get(id)
+export type Catalog = {
+  services: CatalogService[]
+  getService: (id: string) => CatalogService | undefined
+  getBath: (coat: "corto" | "lungo", size: DogSize) => CatalogService
+  groomingServices: CatalogService[]
+  teethServices: CatalogService[]
+  catServices: CatalogService[]
 }
 
-export function getBath(coat: "corto" | "lungo", size: DogSize): CatalogService {
-  return byId.get(`bagno-${coat}-${size.toLowerCase()}`)!
+export function buildCatalog(list: CatalogService[]): Catalog {
+  const byId = new Map(list.map((s) => [s.id, s]))
+  return {
+    services: list,
+    getService: (id) => byId.get(id),
+    // I bagni non si possono nascondere dal salone, quindi esistono sempre.
+    getBath: (coat, size) => byId.get(`bagno-${coat}-${size.toLowerCase()}`)!,
+    groomingServices: list.filter((s) => s.category === "riccio" || s.category === "liscio" || s.category === "extra"),
+    teethServices: list.filter((s) => s.category === "denti"),
+    catServices: list.filter((s) => s.category === "gatto"),
+  }
 }
 
-export const groomingServices = services.filter(
-  (s) => s.category === "riccio" || s.category === "liscio" || s.category === "extra",
-)
-export const teethServices = services.filter((s) => s.category === "denti")
-export const catServices = services.filter((s) => s.category === "gatto")
+/** Servizi sempre offerti: i bagni non possono essere nascosti. */
+export function canHide(service: CatalogService) {
+  return service.category !== "bagno-corto" && service.category !== "bagno-lungo"
+}
 
 export function isSize(value: unknown): value is DogSize {
   return typeof value === "string" && sizes.some((s) => s.id === value)

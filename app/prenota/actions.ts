@@ -19,7 +19,7 @@ export async function getAvailableTimes(input: {
   date: string
   serviceIds: string[]
 }): Promise<{ ok: true; starts: number[] } | { ok: false; error: string }> {
-  const list = resolveServices(input.serviceIds)
+  const list = await resolveServices(input.serviceIds)
   if (!list || !isDateWithin(input.date, BOOKING_DAYS_AHEAD)) {
     return { ok: false, error: "Richiesta non valida" }
   }
@@ -48,7 +48,7 @@ export type CreateAppointmentResult =
 export async function createAppointment(
   input: CreateAppointmentInput,
 ): Promise<CreateAppointmentResult> {
-  const list = resolveServices(input.serviceIds)
+  const list = await resolveServices(input.serviceIds)
   const customerName = clean(input.customerName, 80)
   const dogName = clean(input.dogName, 60)
   const phone = clean(input.phone, 30)

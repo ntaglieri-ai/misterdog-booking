@@ -1,11 +1,9 @@
 import { Check, Clock } from "lucide-react"
+import { useCatalog } from "@/components/catalog-provider"
 import {
   categories,
-  catServices,
   formatDuration,
   formatPrice,
-  getBath,
-  groomingServices,
   type CatalogService,
   type DogSize,
 } from "@/lib/services"
@@ -17,11 +15,12 @@ type ServiceStepProps = {
 }
 
 export function ServiceStep({ size, selectedId, onSelect }: ServiceStepProps) {
+  const { getBath, groomingServices } = useCatalog()
   const baths = [getBath("corto", size), getBath("lungo", size)]
   const groups = (["riccio", "liscio", "extra"] as const).map((cat) => ({
     category: categories.find((c) => c.id === cat)!,
     items: groomingServices.filter((s) => s.category === cat),
-  }))
+  })).filter((g) => g.items.length > 0)
 
   return (
     <section aria-labelledby="service-title" className="flex flex-col gap-5">
@@ -56,6 +55,7 @@ export function CatServiceStep({
   selectedId: string | null
   onSelect: (id: string) => void
 }) {
+  const { catServices } = useCatalog()
   return (
     <section aria-labelledby="cat-service-title" className="flex flex-col gap-5">
       <div>
